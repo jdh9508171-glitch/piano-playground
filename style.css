@@ -73,14 +73,14 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .player .pe { font-size: 44px; margin-right: 12px; }
 .player b { display: block; font-size: 26px; text-align: left; }
 .player small { display: block; font-size: 16px; font-weight: 700; text-align: left; }
-.modes { display: flex; justify-content: center; }
+.modes { display: flex; flex-wrap: wrap; justify-content: center; max-width: 960px; margin: 0 auto; }
 .mode {
-  width: 185px; height: 225px; margin: 0 7px; border-radius: 36px; color: #fff;
+  width: 290px; height: 130px; margin: 7px; border-radius: 36px; color: #fff;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.13);
 }
-.mode .emoji { font-size: 56px; }
-.mode b { font-size: 26px; margin-top: 8px; }
+.mode .emoji { font-size: 44px; }
+.mode b { font-size: 26px; margin-top: 2px; }
 .mode small { font-size: 18px; font-weight: 700; opacity: 0.9; margin-top: 6px; }
 .bottom-row { margin: auto auto 20px; display: flex; align-items: center; }
 .bottom-row .pill { margin-right: 12px; }
@@ -140,7 +140,7 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 /* 오늘 점수 */
 .today { text-align: center; font-size: 20px; font-weight: 900; margin: -10px 0 16px; color: #5a3b00; }
 .today button { margin-left: 10px; font-size: 16px; font-weight: 800; padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,0.7); }
-.mode.green { background: #34b36b; }
+.mode.green { background: #34b36b; } .mode.teal { background: #22b3b3; }
 
 /* 단계 깨기 */
 .course-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 30px; }
@@ -293,7 +293,7 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 
 /* 세로 화면이거나 작은 화면 */
 @media (max-width: 900px) {
-  .mode { width: 170px; height: 200px; margin: 0 6px; }
+  .mode { width: 250px; height: 120px; margin: 6px; }
   .mode .emoji { font-size: 56px; } .mode b { font-size: 26px; } .mode small { font-size: 15px; }
   .home-title { font-size: 38px; margin-top: 0; }
   #learnButtons .pill.small { font-size: 15px; padding: 8px 12px; }

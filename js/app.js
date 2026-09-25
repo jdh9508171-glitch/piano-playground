@@ -290,7 +290,7 @@
     html += '</div><div class="line">최근 7일 ' + pointsSince(currentPlayer, 7) + '점 · 전체 ' + pointsTotal(currentPlayer) + '점</div>';
     var cleared = 0, now = 0;
     STAGES.forEach(function (st, i) { if (stageDone(i)) cleared++; if (stageOpen(i)) now = i; });
-    html += '<div class="line">🗺️ 지금 ' + (now + 1) + '단계 ' + STAGES[now].emoji + ' ' + STAGES[now].name + '</div>';
+    html += '<div class="line">🗺️ 미션 ' + (now + 1) + '단계 ' + STAGES[now].emoji + ' ' + STAGES[now].name + '</div>';
     players.forEach(function (p) {
       if (p.id !== currentPlayer) html += '<div class="line sub">' + p.emoji + ' ' + esc(p.name) + ': 오늘 ' + pointsOn(p.id) + '점 · 전체 ' + pointsTotal(p.id) + '점</div>';
     });
@@ -402,7 +402,7 @@
       showResult(song.title, lesson.stars(),
         [lesson.mistakes === 0 ? '하나도 안 틀렸어요! 🌈' : '틀린 횟수 ' + lesson.mistakes + '번'], newRec,
         [{ label: '🔄 한 번 더', color: 'orange', fn: function () { hideOverlay(); lesson.restart(); saved = false; msg = ''; } },
-         course ? { label: '🗺️ 단계로', color: 'green', fn: function () { go('stage'); } }
+         course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
                 : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
     }
 
@@ -493,7 +493,7 @@
         ['점수 ' + game.score + '점 · 최고 콤보 ' + game.maxCombo,
          '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss], rec,
         [{ label: '🔄 다시', color: 'orange', fn: function () { hideOverlay(); game.reset(); } },
-         course ? { label: '🗺️ 단계로', color: 'green', fn: function () { go('stage'); } }
+         course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
                 : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
     };
     noteHandler = function (midi, source, time) { game.handle(midi, source, time); };
@@ -566,7 +566,7 @@
     if (i !== undefined) stageIndex = i;
     var st = STAGES[stageIndex];
     $('stageTitle').textContent = st.emoji + ' ' + (stageIndex + 1) + '단계 · ' + st.name;
-    $('stageDesc').textContent = st.desc + ' · 곡마다 🎧 듣기 → 📖 따라 치기 → 🐢 느린 게임 → 🐇 보통 게임(별 2개 이상)이면 통과!';
+    $('stageDesc').textContent = st.desc + ' · 미션: 🎧 듣기 → 📖 따라 치기 → 🐢 느린 게임 → 🐇 보통 게임(별 2개 이상)이면 통과!';
     $('stageCount').textContent = st.songs.filter(function (s) { return passed(s.id); }).length + ' / ' + st.songs.length;
     var box = $('stageSongs');
     box.innerHTML = '';
