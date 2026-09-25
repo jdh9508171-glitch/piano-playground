@@ -197,10 +197,15 @@ var Music = (function () {
       if (sc > bestScore) { bestScore = sc; best = ns; }
     });
 
-    var byStart = {};
-    best.forEach(function (n) { if (!byStart[n.start] || byStart[n.start].midi < n.midi) byStart[n.start] = n; });
-    var melody = Object.keys(byStart).map(function (k) { return byStart[k]; })
-      .sort(function (a, c) { return a.start - c.start; });
+    // 윗줄 멜로디: 동시에 시작하면 가장 높은 음, 더 높은 음이 울리는 중에 시작한 낮은 음(반주)은 버린다
+    best.sort(function (a, c) { return a.start - c.start || c.midi - a.midi; });
+    var melody = [];
+    best.forEach(function (n) {
+      var last = melody[melody.length - 1];
+      if (last && last.start === n.start) return;
+      if (last && n.start < last.end - division / 16 && last.midi > n.midi) return;
+      melody.push({ midi: n.midi, start: n.start, end: n.end });
+    });
     for (var i = 0; i < melody.length - 1; i++) {
       if (melody[i].end > melody[i + 1].start) melody[i].end = melody[i + 1].start;
     }

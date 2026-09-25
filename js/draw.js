@@ -176,7 +176,7 @@ Keyboard.prototype.draw = function (force) {
 };
 
 // 높은음자리표 오선에 음표를 그린다. current 위치의 음을 색으로 강조
-function drawStaff(canvas, midis, current, letters) {
+function drawStaff(canvas, midis, current, letters, hideNames) {
   var c = setupCanvas(canvas, 2), ctx = c.ctx, W = c.w, H = c.h;
   ctx.clearRect(0, 0, W, H);
   var gap = Math.min(14, H / 11);
@@ -205,11 +205,12 @@ function drawStaff(canvas, midis, current, letters) {
     var x = startX + spacing * (i + 0.5);
     var y = bottom - step * gap / 2;
     var isCur = i === current, isPast = current !== null && current !== undefined && i < current;
-    var col = isCur ? Music.color(m) : isPast ? 'rgba(128,128,128,0.4)' : '#000';
+    // 퀴즈(이름 숨김)에서는 색이 정답을 알려주지 않도록 검은색으로
+    var col = isCur && !hideNames ? Music.color(m) : isPast ? 'rgba(128,128,128,0.4)' : '#000';
 
     if (isCur) {
       roundRect(ctx, x - spacing * 0.45, 4, spacing * 0.9, H - 8, 10);
-      ctx.fillStyle = hexAlpha(Music.color(m), 0.15);
+      ctx.fillStyle = hideNames ? 'rgba(0,0,0,0.05)' : hexAlpha(Music.color(m), 0.15);
       ctx.fill();
     }
     ctx.strokeStyle = col;
@@ -229,6 +230,7 @@ function drawStaff(canvas, midis, current, letters) {
       ctx.fillText('♯', x - gap * 1.5, y);
     }
     ctx.font = '800 ' + (isCur ? 20 : 15) + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
+    if (hideNames) return;
     ctx.fillStyle = isPast ? 'rgba(128,128,128,0.5)' : Music.color(m);
     var word = letters ? '' : Music.octaveWord(m);
     ctx.fillText(Music.name(m, letters), x, word ? H - 20 : H - 14);

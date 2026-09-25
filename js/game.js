@@ -27,6 +27,14 @@ function Game(song, speed, opts) {
   this.reset();
 }
 
+// 준비 화면에서 빠르기를 바꿀 때
+Game.prototype.setSpeed = function (speed) {
+  this.beat = 60 / this.song.bpm / speed;
+  var last = this.song.notes[this.song.notes.length - 1];
+  this.endTime = (last.beat + last.beats) * this.beat + 1.0;
+  this.reset();
+};
+
 Game.prototype.reset = function () {
   var spb = this.beat;
   this.notes = this.song.notes.map(function (n) {
@@ -165,6 +173,7 @@ Game.prototype.draw = function (canvas, letters) {
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  if (this.phase === 'ready') return;   // 준비 화면에서는 음표를 숨김
   for (var k = 0; k < this.notes.length; k++) {
     var n = this.notes[k], f = L.frame(n.midi), col = Music.color(n.midi);
     if (n.hitAt !== null) {
@@ -217,6 +226,7 @@ function Lesson(song) {
   this.demoIndex = null;
   this.demoGen = 0;
   this.flashes = {};
+  this.speed = 1;
 }
 
 Lesson.prototype.finished = function () { return this.index >= this.notes.length; };
@@ -252,7 +262,7 @@ Lesson.prototype.restart = function () {
 // 곡 전체 또는 지금 위치부터 8음 들려주기
 Lesson.prototype.playDemo = function (fromCurrent, onDone) {
   this.stopDemo();
-  var self = this, gen = this.demoGen, spb = 60 / this.song.bpm;
+  var self = this, gen = this.demoGen, spb = 60 / this.song.bpm / this.speed;
   var start = fromCurrent ? this.index : 0;
   var end = fromCurrent ? Math.min(this.notes.length, start + 8) : this.notes.length;
   if (start >= end) return;
@@ -280,4 +290,70 @@ Lesson.prototype.stopDemo = function () {
   this.demoGen++;
   this.demoIndex = null;
   Sound.allOff();
+};
+
+// ───────── 계이름 퀴즈 / 건반 찾기 / 소리 듣고 찾기 ─────────
+// type: 'read'(악보 보고 치기) 'find'(이름 보고 치기) 'ear'(듣고 찾기)
+var QUIZ_LEVELS = [
+  { name: '1단계', desc: '도~솔', notes: [60, 62, 64, 65, 67], low: 60, high: 72 },
+  { name: '2단계', desc: '도~높은 도', notes: [60, 62, 64, 65, 67, 69, 71, 72], low: 60, high: 72 },
+  { name: '3단계', desc: '낮은 솔~높은 솔', notes: [55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79], low: 48, high: 84 },
+  { name: '4단계', desc: '검은 건반까지', notes: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72], low: 60, high: 72 }
+];
+
+function Quiz(type, level) {
+  this.type = type;
+  this.level = level;
+  this.info = QUIZ_LEVELS[level];
+  this.total = 10;
+  this.flashes = {};
+  this.restart();
+}
+
+Quiz.prototype.restart = function () {
+  this.index = 0;
+  this.firstTry = 0;
+  this.wrongNow = 0;
+  this.started = nowSec();
+  this.target = null;
+  this.waiting = false;
+  this.next();
+};
+
+Quiz.prototype.next = function () {
+  var pool = this.info.notes, t;
+  do { t = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && t === this.target);
+  this.target = t;
+  this.wrongNow = 0;
+  this.waiting = false;
+  if (this.type === 'ear') this.play();
+};
+
+Quiz.prototype.play = function () { Sound.noteOn(this.target, 0.9, 1.0); };
+Quiz.prototype.finished = function () { return this.index >= this.total; };
+
+Quiz.prototype.stars = function () {
+  return this.firstTry >= 9 ? 3 : this.firstTry >= 7 ? 2 : this.firstTry >= 4 ? 1 : 0;
+};
+
+// 'right' | 'wrong' | 'almost'(옥타브만 다름) | null
+Quiz.prototype.handle = function (midi, source) {
+  if (this.waiting || this.finished()) return null;
+  var self = this, t = this.target;
+  var ok = midi === t;
+  // 한 옥타브 안에서만 내는 문제는 마이크가 옥타브를 헷갈려도 인정
+  if (!ok && source === 'mic' && Math.abs(midi - t) === 12 && this.level !== 2) ok = true;
+  if (!ok && Math.abs(midi - t) === 12) {
+    this.flashes[midi] = '#ffb020';
+    setTimeout(function () { delete self.flashes[midi]; }, 300);
+    return 'almost';
+  }
+  this.flashes[ok ? t : midi] = ok ? '#3fd16b' : '#ff4d4d';
+  setTimeout(function () { delete self.flashes[ok ? t : midi]; }, 400);
+  if (!ok) { this.wrongNow++; return 'wrong'; }
+  if (this.wrongNow === 0) this.firstTry++;
+  this.index++;
+  this.waiting = true;
+  if (!this.finished()) setTimeout(function () { self.next(); }, 700);
+  return 'right';
 };

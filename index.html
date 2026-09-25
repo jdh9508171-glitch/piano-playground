@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -16,8 +16,16 @@
   <div class="start-box">
     <img src="icon-512.png" class="start-icon" alt="">
     <h1>피아노 놀이터</h1>
-    <button class="pill big pink" id="startBtn">🎹 시작하기</button>
-    <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
+    <div id="pwBox" class="hidden">
+      <p class="pw-label">🔒 비밀번호를 입력하세요</p>
+      <input id="pwInput" class="pw-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off">
+      <div><button class="pill big pink" id="pwBtn">들어가기</button></div>
+      <p class="pw-msg" id="pwMsg"></p>
+    </div>
+    <div id="startBox" class="hidden">
+      <button class="pill big pink" id="startBtn">🎹 시작하기</button>
+      <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
+    </div>
   </div>
 </section>
 
@@ -30,12 +38,12 @@
   <h1 class="home-title">🎹 피아노 놀이터</h1>
   <div id="players" class="players"></div>
   <div class="modes">
-    <button class="mode orange" data-mode="learn"><span class="emoji">📖</span><b>배우기</b><small>한 음씩 천천히</small></button>
+    <button class="mode orange" data-go="learnMenu"><span class="emoji">📖</span><b>배우기</b><small>곡·계이름·건반 찾기</small></button>
     <button class="mode pink" data-mode="game"><span class="emoji">🎮</span><b>리듬 게임</b><small>떨어지는 음표를 쳐요</small></button>
     <button class="mode blue" data-go="free"><span class="emoji">🎵</span><b>자유 연주</b><small>마음대로 쳐 봐요</small></button>
+    <button class="mode purple" data-go="record"><span class="emoji">🎙️</span><b>노래 만들기</b><small>들려주면 곡이 돼요</small></button>
   </div>
   <div class="bottom-row">
-    <button class="pill small orange hidden" id="familyBtn">🔒 가족 곡 열기</button>
     <div class="status" id="status"></div>
   </div>
 </section>
@@ -47,12 +55,6 @@
     <h2 id="songsTitle"></h2>
     <div class="spacer"></div>
     <div class="who" id="songsWho"></div>
-  </div>
-  <div class="speed" id="speedRow">
-    <span>빠르기</span>
-    <button data-speed="0.6">🐢 느리게</button>
-    <button data-speed="0.8">🐇 보통</button>
-    <button data-speed="1">🚀 원래 속도</button>
   </div>
   <div class="grid-wrap"><div class="grid" id="songGrid"></div></div>
   <input type="file" id="midiFile" class="hidden-file">
@@ -73,6 +75,7 @@
     <button class="round dark" id="btnRestart">↺</button>
   </div>
   <div class="progress"><div class="bar" id="learnBar"></div><span id="learnCount"></span></div>
+  <div class="speed-row small"><span>들려주기 빠르기 🐢</span><input type="range" id="learnSpeed" min="0.3" max="1.5" step="0.05"><span>🚀</span><b id="learnSpeedLabel"></b></div>
   <canvas id="staff" class="staff"></canvas>
   <div class="guide"><div id="guideMain"></div><div id="guideMsg"></div></div>
   <canvas id="learnKeys" class="keys"></canvas>
@@ -95,6 +98,7 @@
       <div class="ready-emoji" id="readyEmoji"></div>
       <div class="ready-title" id="readyTitle"></div>
       <div class="stars" id="readyStars"></div>
+      <div class="speed-row white"><span>🐢</span><input type="range" id="gameSpeed" min="0.3" max="1.5" step="0.05"><span>🚀</span><b id="gameSpeedLabel"></b></div>
       <div>
         <button class="pill big purple" id="btnPreview">🎧 먼저 들어보기</button>
         <button class="pill big pink" id="btnPlay">🎮 시작!</button>
@@ -103,6 +107,64 @@
     </div>
   </div>
   <canvas id="gameKeys" class="keys"></canvas>
+</section>
+
+<!-- 배우기 메뉴 -->
+<section id="learnMenu" class="screen cream">
+  <div class="topbar">
+    <button class="round dark" data-go="home">‹</button>
+    <h2>📖 무엇을 배울까요?</h2>
+    <div class="spacer"></div>
+    <div class="who" id="learnWho"></div>
+  </div>
+  <div class="menu-body">
+    <button class="menu-card orange" data-mode="learn"><span class="emoji">🎵</span><b>곡 배우기</b><small>한 음씩 따라 치며 곡을 익혀요</small></button>
+    <div class="level-row" id="levelRow"></div>
+    <div class="menu-grid">
+      <button class="menu-card green" data-quiz="read"><span class="emoji">🎼</span><b>계이름 퀴즈</b><small>악보를 보고 그 음을 쳐요</small></button>
+      <button class="menu-card blue" data-quiz="find"><span class="emoji">🎯</span><b>건반 찾기</b><small>"높은 레"를 보고 그 자리를 쳐요</small></button>
+      <button class="menu-card purple" data-quiz="ear"><span class="emoji">👂</span><b>소리 듣고 찾기</b><small>들려주는 음을 찾아 쳐요</small></button>
+    </div>
+  </div>
+</section>
+
+<!-- 퀴즈 -->
+<section id="quiz" class="screen cream">
+  <div class="topbar">
+    <button class="round dark" data-go="learnMenu">✕</button>
+    <h2 id="quizTitle"></h2>
+    <div class="spacer"></div>
+    <button class="pill small purple" id="quizReplay">🔊 다시 듣기</button>
+    <b class="quiz-count" id="quizCount"></b>
+  </div>
+  <div class="progress"><div class="bar" id="quizBar"></div></div>
+  <canvas id="quizStaff" class="staff"></canvas>
+  <div class="quiz-prompt" id="quizPrompt"></div>
+  <div class="quiz-msg" id="quizMsg"></div>
+  <canvas id="quizKeys" class="keys"></canvas>
+</section>
+
+<!-- 노래 만들기 (녹음) -->
+<section id="record" class="screen sky">
+  <div class="topbar">
+    <button class="round dark" data-go="home">✕</button>
+    <h2>🎙️ 노래 만들기</h2>
+  </div>
+  <div class="rec-body">
+    <p class="rec-tip" id="recTip">녹음을 누르고 피아노를 치거나, <b>다른 기기(휴대폰·TV)</b>로 피아노 연주 영상을 틀어 주세요.<br>아래 화면 건반으로 직접 쳐서 만들어도 돼요. 한 손 멜로디가 가장 잘 돼요.</p>
+    <div class="rec-main">
+      <button class="rec-btn" id="recBtn">🔴<br><b>녹음 시작</b></button>
+      <div class="rec-info"><div class="rec-time" id="recTime">0:00</div><div class="rec-count" id="recCount">음 0개</div></div>
+    </div>
+    <canvas id="recStaff" class="staff"></canvas>
+    <div class="rec-save hidden" id="recSave">
+      <input id="recName" class="rec-name" maxlength="20" placeholder="곡 이름">
+      <button class="pill blue" id="recPlay">🔊 들어보기</button>
+      <button class="pill green" id="recKeep">💾 저장</button>
+      <button class="pill gray" id="recDiscard">🗑 버리기</button>
+    </div>
+  </div>
+  <canvas id="recKeys" class="keys rec-keys"></canvas>
 </section>
 
 <!-- 자유 연주 -->
@@ -161,11 +223,11 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=4"></script>
-<script src="js/pitch.js?v=4"></script>
-<script src="js/audio.js?v=4"></script>
-<script src="js/draw.js?v=4"></script>
-<script src="js/game.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/music.js?v=7"></script>
+<script src="js/pitch.js?v=7"></script>
+<script src="js/audio.js?v=7"></script>
+<script src="js/draw.js?v=7"></script>
+<script src="js/game.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>

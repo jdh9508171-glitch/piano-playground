@@ -30,6 +30,12 @@
     stars[k] = n; Store.set('stars', stars); return true;
   }
 
+  // 곡마다 빠르기를 따로 기억 (가족 곡은 기본 0.6배가 원곡 느낌)
+  var speeds = Store.get('speeds', {});
+  function speedOf(song) { return speeds[song.id] || (song.id.indexOf('family-') === 0 ? 0.6 : 0.8); }
+  function setSpeedOf(song, v) { speeds[song.id] = v; Store.set('speeds', speeds); }
+  function speedText(v) { return (Math.round(v * 100) / 100) + '배'; }
+
   var imported = Store.get('imported', []);
   function toSong(s, isImported) {
     var notes = s.notes.map(function (a) { return { midi: a[0], beat: a[1], beats: a[2] }; });
@@ -105,13 +111,16 @@
       .catch(function () { return false; /* 인터넷이 안 되면 저장해 둔 곡을 그대로 쓴다 */ });
   }
 
-  function askFamilyPassword() {
-    var pw = prompt('가족 비밀번호를 입력하세요');
+  // 처음 들어올 때 비밀번호 확인 (맞으면 기억해서 다음부터는 묻지 않음)
+  function submitPassword() {
+    var pw = $('pwInput').value.trim();
     if (!pw) return;
-    loadFamilySongs(pw.trim()).then(function (r) {
-      if (r === true) alert('🎉 가족 곡 ' + familySongs.length + '개를 불러왔어요!');
-      else if (r === 'wrong') alert('비밀번호가 틀렸어요.');
-      else alert('곡을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');
+    Sound.unlock();
+    $('pwMsg').textContent = '확인 중…';
+    loadFamilySongs(pw).then(function (r) {
+      if (r === true) { $('pwInput').blur(); startMicIfNeeded(); go('home'); }
+      else if (r === 'wrong') { $('pwMsg').textContent = '비밀번호가 틀렸어요 😢'; $('pwInput').value = ''; }
+      else $('pwMsg').textContent = '인터넷 연결을 확인해 주세요';
     });
   }
 
@@ -210,7 +219,6 @@
       b.addEventListener('click', function () { currentPlayer = p.id; Store.set('currentPlayer', p.id); screens.home(); });
       box.appendChild(b);
     });
-    $('familyBtn').classList.toggle('hidden', familySongs.length > 0);
     updateStatus();
   };
 
@@ -225,10 +233,6 @@
     if (mode) songMode = mode;
     $('songsTitle').textContent = songMode === 'learn' ? '📖 배울 곡 고르기' : '🎮 게임할 곡 고르기';
     $('songsWho').textContent = player().emoji + ' ' + player().name;
-    $('speedRow').style.display = songMode === 'game' ? '' : 'none';
-    Array.prototype.forEach.call(document.querySelectorAll('[data-speed]'), function (b) {
-      b.classList.toggle('on', +b.getAttribute('data-speed') === settings.speed);
-    });
     var grid = $('songGrid');
     grid.innerHTML = '';
     allSongs().forEach(function (s) {
@@ -315,6 +319,13 @@
     $('btnStop').onclick = function () { lesson.stopDemo(); };
     $('btnRestart').onclick = function () { lesson.restart(); msg = ''; saved = false; };
     $('learnBack').onclick = function () { go('songs'); };
+    lesson.speed = speedOf(song);
+    $('learnSpeed').value = lesson.speed;
+    $('learnSpeedLabel').textContent = speedText(lesson.speed);
+    $('learnSpeed').oninput = function () {
+      lesson.speed = +this.value; setSpeedOf(song, lesson.speed);
+      $('learnSpeedLabel').textContent = speedText(lesson.speed);
+    };
     leaveFn = function () { lesson.stopDemo(); };
 
     var lastSig = '';
@@ -358,7 +369,15 @@
   // 리듬 게임
   screens.game = function (song) {
     var guide = settings.guide && !Sound.micActive();
-    var game = new Game(song, settings.speed, { guide: guide, drums: settings.drums });
+    var game = new Game(song, speedOf(song), { guide: guide, drums: settings.drums });
+    $('gameSpeed').value = speedOf(song);
+    $('gameSpeedLabel').textContent = speedText(speedOf(song));
+    $('gameSpeed').oninput = function () {
+      var v = +this.value;
+      setSpeedOf(song, v);
+      $('gameSpeedLabel').textContent = speedText(v);
+      if (game.phase === 'ready') game.setSpeed(v);
+    };
     var kb = keyboards.gameKeys || makeKeyboard('gameKeys');
     kb.low = song.range.low; kb.high = song.range.high;
     var judge = $('judge');
@@ -418,6 +437,175 @@
       kb.draw();
     };
   };
+
+
+  // ───────── 배우기 메뉴 ─────────
+  var quizLevel = Store.get('quizLevel', 0);
+  screens.learnMenu = function () {
+    $('learnWho').textContent = player().emoji + ' ' + player().name;
+    var row = $('levelRow');
+    row.innerHTML = '';
+    QUIZ_LEVELS.forEach(function (lv, i) {
+      var b = el('button', i === quizLevel ? 'on' : '', lv.name + '<small>' + lv.desc + '</small>');
+      b.addEventListener('click', function () { quizLevel = i; Store.set('quizLevel', i); screens.learnMenu(); });
+      row.appendChild(b);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-quiz]'), function (b) {
+      var type = b.getAttribute('data-quiz');
+      var st = b.querySelector('.qstars') || b.appendChild(el('span', 'qstars'));
+      st.textContent = starsText(starOf('quiz', type + quizLevel));
+    });
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-quiz]'), function (b) {
+    b.addEventListener('click', function () { go('quiz', b.getAttribute('data-quiz')); });
+  });
+
+  // ───────── 퀴즈 ─────────
+  screens.quiz = function (type) {
+    var quiz = new Quiz(type, quizLevel), kb = keyboards.quizKeys || makeKeyboard('quizKeys');
+    var titles = { read: '🎼 계이름 퀴즈', find: '🎯 건반 찾기', ear: '👂 소리 듣고 찾기' };
+    var msg = '', msgColor = '#000', done = false;
+    kb.low = quiz.info.low; kb.high = quiz.info.high;
+    $('quizTitle').textContent = titles[type] + ' · ' + quiz.info.name;
+    $('quizReplay').classList.toggle('hidden', type !== 'ear');
+    $('quizReplay').onclick = function () { quiz.play(); };
+    $('quizStaff').style.display = type === 'read' ? '' : 'none';
+    if (type === 'ear') msg = '잘 듣고 그 음을 찾아 쳐 보세요!';
+
+    noteHandler = function (midi, source) {
+      var r = quiz.handle(midi, source), L = settings.letters;
+      if (r === 'right') { msg = ['딩동댕! 🎉', '맞았어요! 👏', '정답! ⭐', '최고! 💯'][quiz.index % 4]; msgColor = '#2a9d4b'; }
+      if (r === 'almost') { msg = '음은 맞았어요! 높이를 다시 봐요 (' + Music.fullName(midi, L) + ')'; msgColor = '#e08a00'; }
+      if (r === 'wrong') {
+        msg = type === 'ear' ? '다시 들어볼까요? 🔊' : '그건 ' + Music.particle(Music.fullName(midi, L), '이에요', '예요') + '. 다시!';
+        msgColor = '#e03131';
+      }
+      if (quiz.finished() && !done) {
+        done = true;
+        var n = quiz.stars(), rec = record('quiz', type + quizLevel, n);
+        var secs = Math.round(nowSec() - quiz.started);
+        setTimeout(function () {
+          showResult(titles[type] + ' ' + quiz.info.name, n,
+            ['한 번에 맞힌 문제 ' + quiz.firstTry + ' / ' + quiz.total, '걸린 시간 ' + secs + '초'], rec,
+            [{ label: '🔄 한 번 더', color: 'orange', fn: function () { hideOverlay(); quiz.restart(); done = false; msg = ''; } },
+             { label: '📋 메뉴', color: 'blue', fn: function () { go('learnMenu'); } }]);
+        }, 600);
+      }
+    };
+
+    var lastSig = '';
+    frameFn = function () {
+      var t = quiz.target, L = settings.letters;
+      // 세 번 틀리면 정답 건반을 알려줌
+      kb.hints = {}; if (quiz.wrongNow >= 3 && !quiz.waiting) kb.hints[t] = true;
+      kb.flashes = quiz.flashes; kb.pressed = pressed; kb.letters = L;
+      Sound.setExpected(null);
+      kb.draw();
+      var sig = [t, quiz.index, msg, quiz.wrongNow >= 3, $('quizStaff').clientWidth].join('|');
+      if (sig === lastSig) return;
+      lastSig = sig;
+      $('quizBar').style.width = (100 * quiz.index / quiz.total) + '%';
+      $('quizCount').textContent = Math.min(quiz.index + 1, quiz.total) + ' / ' + quiz.total;
+      if (type === 'read') {
+        drawStaff($('quizStaff'), [t], 0, L, quiz.wrongNow < 3);
+        $('quizPrompt').innerHTML = quiz.wrongNow >= 3 ? '<span style="color:' + Music.color(t) + '">' + Music.fullName(t, L) + '</span>' : '이 음은 무엇일까요? 🤔';
+      } else if (type === 'find') {
+        var nm = Music.fullName(t, L);
+        $('quizPrompt').innerHTML = '<span style="color:' + Music.color(t) + '">' + nm + '</span>' + Music.particle(nm, '을', '를').slice(nm.length) + ' 쳐요!';
+      } else {
+        $('quizPrompt').innerHTML = quiz.wrongNow >= 3 ? '정답은 <span style="color:' + Music.color(t) + '">' + Music.fullName(t, L) + '</span>' : '🎵 어떤 음일까요?';
+      }
+      $('quizMsg').textContent = msg;
+      $('quizMsg').style.color = msgColor;
+    };
+  };
+
+  // ───────── 노래 만들기 (녹음) ─────────
+  screens.record = function () {
+    var rec = [], recording = false, startedAt = 0, dirty = true, savedNotes = null;
+    var kb = keyboards.recKeys || makeKeyboard('recKeys');
+    kb.low = 60; kb.high = 84;
+    function setBtn() {
+      $('recBtn').classList.toggle('on', recording);
+      $('recBtn').innerHTML = recording ? '⏹<br><b>녹음 끝</b>' : '🔴<br><b>녹음 시작</b>';
+    }
+    function stop() {
+      recording = false; setBtn();
+      Sound.setSpeechFilter(settings.speech);
+      if (rec.length < 4) { $('recCount').textContent = '음이 너무 적어요. 다시 해 볼까요?'; return; }
+      savedNotes = cleanRecording(rec);
+      $('recName').value = '내가 만든 노래 ' + (imported.filter(function (x) { return x.id.indexOf('rec-') === 0; }).length + 1);
+      $('recSave').classList.remove('hidden');
+    }
+    $('recSave').classList.add('hidden');
+    $('recTime').textContent = '0:00';
+    $('recCount').textContent = Sound.micActive() ? '음 0개' : '⚠️ 마이크가 꺼져 있어요 (설정에서 켜 주세요)';
+    setBtn();
+    $('recBtn').onclick = function () {
+      if (recording) { stop(); return; }
+      if (!Sound.micActive()) { settings.mic = true; saveSettings(); startMicIfNeeded(); }
+      rec = []; savedNotes = null; dirty = true;
+      $('recSave').classList.add('hidden');
+      // 녹음할 때는 피아노 소리를 최대한 다 받도록 말소리 거르기를 잠시 끈다
+      Sound.setSpeechFilter(false);
+      recording = true; startedAt = nowSec(); setBtn();
+    };
+    $('recPlay').onclick = function () {
+      if (!savedNotes) return;
+      Sound.allOff();
+      savedNotes.forEach(function (n) {
+        setTimeout(function () { Sound.noteOn(n[0], 0.8, n[2] * 0.9); }, n[1] * 1000);
+      });
+    };
+    $('recKeep').onclick = function () {
+      if (!savedNotes) return;
+      imported.push({ id: 'rec-' + Date.now(), title: $('recName').value.trim() || '내가 만든 노래', emoji: '🎙️',
+                      bpm: 60, beatsPerBar: 4, notes: savedNotes });
+      Store.set('imported', imported);
+      alert('🎉 저장했어요! 곡 목록에서 배우기·게임으로 쳐 볼 수 있어요.');
+      savedNotes = null; rec = []; dirty = true;
+      $('recSave').classList.add('hidden');
+      $('recCount').textContent = '음 0개';
+    };
+    $('recDiscard').onclick = function () { savedNotes = null; rec = []; dirty = true; $('recSave').classList.add('hidden'); $('recCount').textContent = '음 0개'; };
+    leaveFn = function () { if (recording) { recording = false; Sound.setSpeechFilter(settings.speech); } Sound.allOff(); };
+
+    noteHandler = function (midi, source, time) {
+      if (!recording) return;
+      rec.push({ midi: midi, t: time - startedAt - (source === 'mic' ? LATENCY.mic : 0) });
+      dirty = true;
+    };
+    frameFn = function () {
+      if (recording) {
+        var sec = Math.floor(nowSec() - startedAt);
+        $('recTime').textContent = Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2);
+        $('recCount').textContent = '음 ' + rec.length + '개';
+        if (sec >= 180) stop();   // 최대 3분
+      }
+      kb.hints = {}; kb.flashes = {}; kb.pressed = pressed; kb.letters = settings.letters;
+      kb.draw();
+      if (dirty) {
+        dirty = false;
+        drawStaff($('recStaff'), rec.slice(-12).map(function (n) { return n.midi; }), rec.length ? Math.min(rec.length, 12) - 1 : null, settings.letters);
+      }
+    };
+  };
+
+  // 녹음한 음들을 곡으로 정리: 너무 붙어 있는 같은 음 합치기, 시작을 0으로, 길이는 다음 음까지
+  function cleanRecording(rec) {
+    var list = [];
+    rec.forEach(function (n) {
+      var last = list[list.length - 1];
+      if (last && last.midi === n.midi && n.t - last.t < 0.08) return;
+      list.push({ midi: n.midi, t: Math.max(0, n.t) });
+    });
+    var t0 = list[0].t;
+    return list.map(function (n, i) {
+      var start = Math.round((n.t - t0) * 20) / 20;
+      var next = i + 1 < list.length ? list[i + 1].t - t0 : start + 1;
+      return [n.midi, start, Math.max(0.15, Math.min(1.5, Math.round((next - start) * 20) / 20))];
+    });
+  }
 
   // 자유 연주
   var octave = 4;
@@ -496,9 +684,6 @@
   Array.prototype.forEach.call(document.querySelectorAll('[data-letters]'), function (b) {
     b.addEventListener('click', function () { settings.letters = b.getAttribute('data-letters') === '1'; saveSettings(); screens.settings(); });
   });
-  Array.prototype.forEach.call(document.querySelectorAll('[data-speed]'), function (b) {
-    b.addEventListener('click', function () { settings.speed = +b.getAttribute('data-speed'); saveSettings(); screens.songs(); });
-  });
   Array.prototype.forEach.call(document.querySelectorAll('[data-go]'), function (b) {
     b.addEventListener('click', function () { go(b.getAttribute('data-go')); });
   });
@@ -506,7 +691,10 @@
     b.addEventListener('click', function () { go('songs', b.getAttribute('data-mode')); });
   });
 
-  $('familyBtn').addEventListener('click', askFamilyPassword);
+  $('pwBtn').addEventListener('click', submitPassword);
+  $('pwInput').addEventListener('keydown', function (e) { if (e.keyCode === 13) submitPassword(); });
+  var unlocked = !!Store.get('familyPassword', null);
+  $(unlocked ? 'startBox' : 'pwBox').classList.remove('hidden');
   $('startBtn').addEventListener('click', function () {
     Sound.unlock();
     startMicIfNeeded();
