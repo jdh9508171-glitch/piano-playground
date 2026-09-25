@@ -117,9 +117,10 @@
     var pw = $('pwInput').value.trim();
     if (!pw) return;
     Sound.unlock();
+    startMicIfNeeded();          // 버튼을 누른 순간에 마이크를 켜야 아이패드에서 잘 켜진다
     $('pwMsg').textContent = '확인 중…';
     loadFamilySongs(pw).then(function (r) {
-      if (r === true) { $('pwInput').blur(); startMicIfNeeded(); go('home'); }
+      if (r === true) { $('pwInput').blur(); go('home'); }
       else if (r === 'wrong') { $('pwMsg').textContent = '비밀번호가 틀렸어요 😢'; $('pwInput').value = ''; }
       else $('pwMsg').textContent = '인터넷 연결을 확인해 주세요';
     });
@@ -142,6 +143,7 @@
       noteOn(midi, 'mic', nowSec());
     } else noteOff(midi);
   }
+  // 아이패드에서 소리 엔진이 새로 만들어지면 화면을 누를 때 다시 켜지도록 (touchstart에서 unlock)
 
   function startMicIfNeeded() {
     $('micWarn').textContent = '';
@@ -771,6 +773,7 @@
     pe.appendChild(el('p', 'hint', '동물을 누르면 바뀌어요.'));
     noteHandler = function () {};
     frameFn = function () {
+      $('micStatus').textContent = Sound.micStatus();
       $('micMeter').style.width = Math.round(Sound.micLevel() * 100) + '%';
       var n = lastNote;
       $('micNote').textContent = n === null ? '-' : Music.fullName(n, settings.letters);
@@ -779,6 +782,10 @@
     };
   };
 
+  $('micRestart').addEventListener('click', function () {
+    settings.mic = true; saveSettings(); $('setMic').checked = true;
+    Sound.stopMic(); Sound.unlock(); startMicIfNeeded();
+  });
   $('setMic').addEventListener('change', function () { settings.mic = this.checked; saveSettings(); startMicIfNeeded(); });
   $('setSens').addEventListener('input', function () { settings.sens = +this.value; saveSettings(); Sound.setSensitivity(settings.sens); });
   $('setSpeech').addEventListener('change', function () { settings.speech = this.checked; saveSettings(); Sound.setSpeechFilter(settings.speech); });

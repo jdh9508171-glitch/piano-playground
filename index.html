@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -206,6 +206,7 @@
     <div class="card">
       <h3>🎤 마이크 (피아노 소리 듣기)</h3>
       <label class="row"><span>마이크 사용</span><input type="checkbox" id="setMic"></label>
+      <div class="row"><span id="micStatus" class="mic-status">-</span><button class="pill small red" id="micRestart">🎤 마이크 다시 켜기</button></div>
       <div class="row"><span>민감도</span><input type="range" id="setSens" min="0" max="1" step="0.05"></div>
       <label class="row"><span>말소리 거르기 <small class="sub-hint">(말소리·노랫소리를 건반으로 착각하지 않게)</small></span><input type="checkbox" id="setSpeech"></label>
       <div class="row"><span>소리 크기</span><div class="meter"><div id="micMeter"></div></div><b id="micNote" class="mic-note">-</b></div>
@@ -236,11 +237,11 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=12"></script>
-<script src="js/pitch.js?v=12"></script>
-<script src="js/audio.js?v=12"></script>
-<script src="js/draw.js?v=12"></script>
-<script src="js/game.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/music.js?v=13"></script>
+<script src="js/pitch.js?v=13"></script>
+<script src="js/audio.js?v=13"></script>
+<script src="js/draw.js?v=13"></script>
+<script src="js/game.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

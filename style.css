@@ -225,6 +225,7 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .meter div { height: 100%; width: 0; background: #3fbf66; }
 .sub-hint { font-size: 14px; font-weight: 600; color: #999; }
 .mic-log { flex: 2 !important; font-size: 18px; font-weight: 800; color: #555; }
+.mic-status { font-size: 17px; font-weight: 800; color: #444; }
 .mic-note { width: 150px; text-align: center; font-size: 26px; font-weight: 900; }
 .choice { flex: 1; margin: 0 6px; padding: 12px; border-radius: 14px; background: rgba(0,0,0,0.06); font-size: 22px; font-weight: 900; }
 .choice.on { background: #ff9533; color: #fff; }
