@@ -117,10 +117,12 @@ PitchDetector.prototype.analyze = function (x) {
   this.onsetAge++;
   // (조용하다가 소리가 나기 시작한 것도 건반을 친 것으로 본다)
   var attack = newR > oldR * 1.6 || newHF > oldHF * 1.8 || rms > this.prevRms * 2;
+  var strength = Math.max(newR / (oldR + 1e-9), rms / (this.prevRms + 1e-9));
   this.prevRms = rms;
   if (attack && db > threshold && this.framesSinceEmit > this.fps * 0.06) {
     // 이전 음의 잔향이 섞여 있으니 음높이를 처음부터 다시 확인
     this.onsetPending = true;
+    this.onsetStrength = strength;
     this.onsetAge = 0;
     this.candidate = null;
     this.stable = 0;
@@ -166,6 +168,8 @@ PitchDetector.prototype.analyze = function (x) {
   // 말소리 거르기 중에는 '건반을 친 순간'이 있어야만 새 음으로 인정
   // (단, 지금 쳐야 할 음으로 바뀐 거라면 빠르게 이어 친 것으로 보고 바로 인정)
   var isNew = strict ? (this.onsetPending || (midi !== this.current && isExpected)) : (midi !== this.current || this.onsetPending);
+  // 울리고 있는 같은 음을 '다시 친 것'으로 보려면 소리가 확실히(약 2배) 커져야 한다 (울림의 출렁임 무시)
+  if (isNew && midi === this.current && (this.onsetStrength || 0) < 1.9) isNew = false;
   if (ready && isNew) {
     if (this.current !== null) this.emit(this.current, false);
     this.current = midi;

@@ -45,6 +45,7 @@ Game.prototype.reset = function () {
   this.perfect = 0; this.good = 0; this.miss = 0;
   this.hints = {}; this.flashes = {}; this.flashUntil = {};
   this.lastHit = {};
+  this.lastHitNote = undefined; this.lastHitIndex = -1;
   this.nextBeat = -this.countIn;
   this.phase = 'ready';
   this.frozen = -this.countIn * spb;
@@ -143,9 +144,14 @@ Game.prototype.handle = function (midi, source, time) {
     if (d < bestD) { bestD = d; best = i; }
   }
   if (best < 0 || bestD > this.goodWindow) { this.flash(midi, '#ff4d4d'); return; }
+  // 같은 음이 연속으로 나올 때: 방금 맞힌 음과 같은 음이면, 다음 음은 제 타이밍(±0.15초) 근처에서만 인정
+  // (한 번 친 소리가 늦게 한 번 더 들어와서 두 개가 한꺼번에 사라지는 것 방지)
+  if (this.lastHitNote !== undefined && this.notes[best].midi % 12 === this.lastHitNote.midi % 12 &&
+      this.notes[best].time - t > this.perfectWindow && best !== this.lastHitIndex) return;
   var perfect = bestD <= this.perfectWindow, note = this.notes[best];
   midi = note.midi;
   this.lastHit[pc] = time;
+  this.lastHitNote = note; this.lastHitIndex = best;
   note.state = perfect ? 'perfect' : 'good';
   note.hitAt = this.time();
   this.combo++;
@@ -249,7 +255,7 @@ Lesson.prototype.stars = function () {
 Lesson.prototype.handle = function (midi, source) {
   if (this.demoIndex !== null || this.finished()) return null;
   var self = this, now = nowSec();
-  if (this.lastAt !== undefined && this.lastMidi % 12 === midi % 12 && now - this.lastAt < (source === 'mic' ? 0.22 : 0.08)) return null;
+  if (this.lastAt !== undefined && this.lastMidi % 12 === midi % 12 && now - this.lastAt < (source === 'mic' ? 0.4 : 0.08)) return null;
   this.lastAt = now; this.lastMidi = midi;
   var ok = sameNote(this.target(), midi, source);
   // 마이크로 곡 범위 밖의 음이 잡히면 말소리나 잡음일 가능성이 높으니 틀린 것으로 치지 않음
