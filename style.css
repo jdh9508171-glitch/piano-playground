@@ -136,6 +136,13 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .ready-title { font-size: 40px; font-weight: 900; color: #fff; margin: 4px 0 8px; }
 .ready .stars { margin-bottom: 16px; color: #ffd23f; }
 
+/* 카테고리 탭 */
+.cat-tabs { flex-shrink: 0; white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 12px; }
+.cat-tabs button { display: inline-block; margin-right: 8px; padding: 10px 16px; border-radius: 999px; background: #fff; font-size: 18px; font-weight: 800; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.cat-tabs button small { font-size: 14px; opacity: 0.6; }
+.cat-tabs button.on { background: #ff5c9a; color: #fff; }
+.cat-tabs button.on small { opacity: 0.9; }
+
 /* 빠르기 슬라이더 */
 .speed-row { display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin: 6px 0 10px; }
 .speed-row input[type=range] { width: 320px; margin: 0 10px; height: 40px; }
@@ -154,8 +161,17 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .menu-body > .menu-card { width: 640px; max-width: 94%; flex-direction: row; }
 .menu-body > .menu-card .emoji { margin-right: 16px; }
 .menu-body > .menu-card b { margin: 0 14px 0 0; }
-.menu-grid .menu-card { width: 290px; height: 220px; }
-.level-row { margin: 18px 0 6px; }
+.menu-grid { font-size: 0; }
+.menu-grid .menu-card { width: 212px; height: 160px; padding: 10px; margin: 6px; }
+.menu-grid .menu-card .emoji { font-size: 44px; }
+.menu-grid .menu-card b { font-size: 23px; }
+.menu-grid .menu-card small { font-size: 14px; }
+.menu-card.red { background: #ef5b5b; } .menu-card.teal { background: #22b3b3; } .menu-card.indigo { background: #5b5bd6; } .menu-card.pink { background: #ff5c9a; }
+.quiz-choices { text-align: center; flex-shrink: 0; }
+.quiz-choices button { font-size: 30px; font-weight: 900; padding: 18px 26px; margin: 8px; border-radius: 22px; background: #fff; box-shadow: 0 5px 12px rgba(0,0,0,0.12); min-width: 150px; }
+.quiz-choices button.wide { font-size: 22px; min-width: 380px; }
+.quiz-choices button.bad { background: #ffd6d6; } .quiz-choices button.good { background: #c9f5d6; }
+.level-row { margin: 12px 0 4px; }
 .level-row button { margin: 4px; padding: 10px 16px; border-radius: 16px; background: rgba(0,0,0,0.06); font-size: 18px; font-weight: 800; }
 .level-row button small { display: block; font-size: 13px; font-weight: 700; opacity: 0.8; }
 .level-row button.on { background: #ff9533; color: #fff; }
@@ -171,7 +187,7 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .rec-body { flex: 1; overflow-y: auto; padding: 0 20px 20px; text-align: center; }
 .rec-tip { font-size: 18px; font-weight: 700; color: rgba(0,0,0,0.6); margin: 0 0 14px; line-height: 1.5; }
 .rec-main { display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-.rec-btn { width: 130px; height: 130px; border-radius: 65px; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.15); font-size: 40px; line-height: 1.2; }
+.rec-btn { flex-shrink: 0; width: 130px; height: 130px; border-radius: 65px; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.15); font-size: 40px; line-height: 1.2; }
 .rec-btn b { font-size: 20px; }
 .rec-btn.on { background: #ff4d6d; color: #fff; -webkit-animation: pulse 1s infinite; animation: pulse 1s infinite; }
 @-webkit-keyframes pulse { 50% { -webkit-transform: scale(1.06); } }
@@ -180,6 +196,13 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .rec-time { font-size: 54px; font-weight: 900; }
 .rec-count { font-size: 22px; font-weight: 800; color: rgba(0,0,0,0.55); }
 .rec-save { margin-top: 10px; }
+.yt-row { display: flex; justify-content: center; align-items: center; margin-bottom: 8px; }
+.yt-url { width: 520px; max-width: 70%; font-size: 18px; font-weight: 700; padding: 12px 14px; border: 2px solid #ddd; border-radius: 14px; margin-right: 8px; -webkit-user-select: text; user-select: text; font-family: inherit; }
+.pill.red { background: #ef4444; }
+.yt-box { width: 320px; height: 180px; margin-right: 24px; border-radius: 14px; overflow: hidden; background: #000; flex-shrink: 0; }
+.yt-box iframe { width: 100%; height: 100%; border: 0; }
+.rec-meter { width: 220px; margin-top: 8px; }
+.rec-now { font-size: 20px; font-weight: 800; margin-top: 6px; color: #444; }
 .rec-keys { height: 28%; }
 .qstars { display: block; font-size: 22px; margin-top: 6px; letter-spacing: 2px; }
 #recStaff { height: 130px; margin: 0 auto; }

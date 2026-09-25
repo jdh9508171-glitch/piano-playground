@@ -18,8 +18,9 @@ function Game(song, speed, opts) {
   this.countIn = 4;
   this.guide = opts.guide;
   this.drums = opts.drums;
-  this.perfectWindow = 0.10;
-  this.goodWindow = 0.25;
+  // 아이들용이라 넉넉하게: ±0.15초면 완벽, ±0.4초면 좋아요
+  this.perfectWindow = 0.15;
+  this.goodWindow = 0.40;
   var last = song.notes[song.notes.length - 1];
   this.endTime = (last.beat + last.beats) * this.beat + 1.0;
   this.onJudge = null;    // function(text, cssClass)
@@ -43,6 +44,7 @@ Game.prototype.reset = function () {
   this.score = 0; this.combo = 0; this.maxCombo = 0;
   this.perfect = 0; this.good = 0; this.miss = 0;
   this.hints = {}; this.flashes = {}; this.flashUntil = {};
+  this.lastHit = {};
   this.nextBeat = -this.countIn;
   this.phase = 'ready';
   this.frozen = -this.countIn * spb;
@@ -73,7 +75,7 @@ Game.prototype.resume = function () {
 };
 
 Game.prototype.stars = function () {
-  var acc = (this.perfect + this.good * 0.7) / Math.max(this.notes.length, 1);
+  var acc = (this.perfect + this.good * 0.85) / Math.max(this.notes.length, 1);
   return acc >= 0.9 ? 3 : acc >= 0.65 ? 2 : acc >= 0.3 ? 1 : 0;
 };
 
@@ -130,6 +132,9 @@ Game.prototype.tick = function () {
 Game.prototype.handle = function (midi, source, time) {
   if (this.phase !== 'playing') return;
   var t = time - this.origin - LATENCY[source];
+  // 한 번 친 소리가 두 번 들어오면(마이크 울림 등) 같은 음 두 개가 한꺼번에 사라지므로, 아주 짧은 간격의 같은 음은 한 번만 인정
+  var pc = midi % 12;
+  if (this.lastHit[pc] !== undefined && time - this.lastHit[pc] < (source === 'mic' ? 0.22 : 0.08)) return;
   var best = -1, bestD = 1e9;
   for (var i = 0; i < this.notes.length; i++) {
     var n = this.notes[i];
@@ -140,6 +145,7 @@ Game.prototype.handle = function (midi, source, time) {
   if (best < 0 || bestD > this.goodWindow) { this.flash(midi, '#ff4d4d'); return; }
   var perfect = bestD <= this.perfectWindow, note = this.notes[best];
   midi = note.midi;
+  this.lastHit[pc] = time;
   note.state = perfect ? 'perfect' : 'good';
   note.hitAt = this.time();
   this.combo++;
@@ -242,7 +248,9 @@ Lesson.prototype.stars = function () {
 // 맞으면 'right', 틀리면 'wrong', 무시하면 null
 Lesson.prototype.handle = function (midi, source) {
   if (this.demoIndex !== null || this.finished()) return null;
-  var self = this;
+  var self = this, now = nowSec();
+  if (this.lastAt !== undefined && this.lastMidi % 12 === midi % 12 && now - this.lastAt < (source === 'mic' ? 0.22 : 0.08)) return null;
+  this.lastAt = now; this.lastMidi = midi;
   var ok = sameNote(this.target(), midi, source);
   // 마이크로 곡 범위 밖의 음이 잡히면 말소리나 잡음일 가능성이 높으니 틀린 것으로 치지 않음
   if (!ok && source === 'mic' && (midi < this.song.range.low || midi > this.song.range.high)) return null;
@@ -301,59 +309,216 @@ var QUIZ_LEVELS = [
   { name: '4단계', desc: '검은 건반까지', notes: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72], low: 60, high: 72 }
 ];
 
-function Quiz(type, level) {
+// 문제 종류
+//  read   악보 보고 치기        choice 악보 보고 이름 고르기
+//  find   이름 보고 치기        speed  30초 동안 건반 찾기
+//  ear    소리 듣고 치기        updown 두 소리 높낮이 맞히기
+//  memory 들려준 순서대로 따라 치기 (점점 길어짐)
+//  guess  곡 앞부분 듣고 제목 맞히기
+var QUIZ_TYPES = {
+  read: { title: '🎼 계이름 퀴즈', keys: true },
+  choice: { title: '🔤 계이름 고르기', keys: false },
+  find: { title: '🎯 건반 찾기', keys: true },
+  speed: { title: '⏱️ 스피드 건반 찾기', keys: true },
+  ear: { title: '👂 소리 듣고 찾기', keys: true },
+  updown: { title: '⬆️ 높낮이 맞히기', keys: false },
+  memory: { title: '🧠 따라 치기', keys: true },
+  guess: { title: '🎵 곡 맞히기', keys: false }
+};
+
+function shuffle(a) {
+  for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a;
+}
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+function Quiz(type, level, songs) {
   this.type = type;
   this.level = level;
   this.info = QUIZ_LEVELS[level];
-  this.total = 10;
+  // 곡 맞히기: 같은 곡의 (쉬운)/(전체) 버전은 하나만
+  var seen = {};
+  this.songs = (songs || []).filter(function (s) {
+    var base = s.title.replace(/ \((쉬운|전체)\)$/, '');
+    if (s.notes.length < 6 || seen[base]) return false;
+    seen[base] = true;
+    return true;
+  }).map(function (s) {
+    var copy = {}; for (var k in s) copy[k] = s[k];
+    copy.title = s.title.replace(/ \((쉬운|전체)\)$/, '');
+    return copy;
+  });
+  this.total = type === 'memory' || type === 'speed' ? 0 : 10;
+  this.timeLimit = 30;
   this.flashes = {};
   this.restart();
 }
 
 Quiz.prototype.restart = function () {
-  this.index = 0;
+  this.gen = (this.gen || 0) + 1;
+  this.index = 0;          // 맞힌 문제 수
   this.firstTry = 0;
   this.wrongNow = 0;
   this.started = nowSec();
   this.target = null;
   this.waiting = false;
+  this.over = false;
+  this.seq = []; this.pos = 0; this.demo = false;
+  this.choices = []; this.answer = -1;
   this.next();
 };
 
 Quiz.prototype.next = function () {
-  var pool = this.info.notes, t;
-  do { t = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && t === this.target);
-  this.target = t;
+  var pool = this.info.notes, self = this, t, i;
   this.wrongNow = 0;
   this.waiting = false;
-  if (this.type === 'ear') this.play();
+  var prev = this.target;
+  function newTarget() { do { t = pick(pool); } while (pool.length > 1 && t === prev); return t; }
+  switch (this.type) {
+    case 'read': case 'find': case 'speed': case 'ear':
+      this.target = newTarget();
+      if (this.type === 'ear') this.play();
+      break;
+    case 'choice':
+      this.target = newTarget();
+      var names = [this.target];
+      var others = shuffle(pool.filter(function (m) { return m % 12 !== self.target % 12; }));
+      for (i = 0; names.length < 4 && i < others.length; i++) {
+        if (!names.some(function (m) { return m % 12 === others[i] % 12; })) names.push(others[i]);
+      }
+      this.choices = shuffle(names).map(function (m) { return { label: Music.name(m), midi: m }; });
+      this.answer = this.choices.map(function (c) { return c.midi; }).indexOf(this.target);
+      break;
+    case 'updown':
+      var a = pick(pool), b = Math.random() < 0.15 ? a : pick(pool);
+      this.pair = [a, b];
+      this.choices = [{ label: '⬆️ 올라가요' }, { label: '⬇️ 내려가요' }, { label: '➡️ 똑같아요' }];
+      this.answer = b > a ? 0 : b < a ? 1 : 2;
+      this.play();
+      break;
+    case 'guess':
+      var song = pick(this.songs), titles = [song];
+      var rest = shuffle(this.songs.filter(function (x) { return x.title !== song.title; }));
+      for (i = 0; titles.length < 4 && i < rest.length; i++) titles.push(rest[i]);
+      this.song = song;
+      this.choices = shuffle(titles).map(function (x) { return { label: x.emoji + ' ' + x.title }; });
+      this.answer = this.choices.map(function (c) { return c.label; }).indexOf(song.emoji + ' ' + song.title);
+      this.play();
+      break;
+    case 'memory':
+      this.seq.push(pick(pool));
+      if (this.seq.length === 1) this.seq.push(pick(pool));
+      this.pos = 0;
+      this.play();
+      break;
+  }
 };
 
-Quiz.prototype.play = function () { Sound.noteOn(this.target, 0.9, 1.0); };
-Quiz.prototype.finished = function () { return this.index >= this.total; };
+// 문제 소리 들려주기 (다시 듣기 버튼도 이걸 부름)
+Quiz.prototype.play = function () {
+  var self = this, gen = this.gen;
+  function later(sec, fn) { setTimeout(function () { if (self.gen === gen) fn(); }, sec * 1000); }
+  if (this.type === 'ear') Sound.noteOn(this.target, 0.9, 1.0);
+  if (this.type === 'updown') {
+    Sound.noteOn(this.pair[0], 0.9, 0.7);
+    later(0.9, function () { Sound.noteOn(self.pair[1], 0.9, 0.7); });
+  }
+  if (this.type === 'guess') {
+    var s = this.song, spb = 60 / s.bpm / (s.id.indexOf('family-') === 0 ? 0.6 : 0.8);
+    var first = s.notes[0].beat;
+    s.notes.slice(0, 10).forEach(function (n) {
+      var at = (n.beat - first) * spb;
+      if (at < 6) later(0.2 + at, function () { Sound.noteOn(n.midi, 0.8, Math.min(n.beats * spb, 0.8)); });
+    });
+  }
+  if (this.type === 'memory') {
+    this.demo = true;
+    this.seq.forEach(function (m, i) {
+      later(0.5 + i * 0.65, function () {
+        Sound.noteOn(m, 0.9, 0.45);
+        self.flashes[m] = '#ffd23f';
+        setTimeout(function () { if (self.flashes[m] === '#ffd23f') delete self.flashes[m]; }, 420);
+      });
+    });
+    later(0.5 + this.seq.length * 0.65, function () { self.demo = false; });
+  }
+};
+
+Quiz.prototype.timeLeft = function () { return Math.max(0, this.timeLimit - (nowSec() - this.started)); };
+
+Quiz.prototype.finished = function () {
+  if (this.type === 'memory') return this.over;
+  if (this.type === 'speed') return this.timeLeft() <= 0;
+  return this.index >= this.total;
+};
+
+Quiz.prototype.score = function () {
+  if (this.type === 'memory') return Math.max(0, this.seq.length - 1);   // 성공한 가장 긴 길이
+  if (this.type === 'speed') return this.index;
+  return this.firstTry;
+};
 
 Quiz.prototype.stars = function () {
-  return this.firstTry >= 9 ? 3 : this.firstTry >= 7 ? 2 : this.firstTry >= 4 ? 1 : 0;
+  var n = this.score();
+  if (this.type === 'memory') return n >= 7 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0;
+  if (this.type === 'speed') return n >= 20 ? 3 : n >= 13 ? 2 : n >= 7 ? 1 : 0;
+  return n >= 9 ? 3 : n >= 7 ? 2 : n >= 4 ? 1 : 0;
 };
 
-// 'right' | 'wrong' | 'almost'(옥타브만 다름) | null
+Quiz.prototype.flash = function (m, color, ms) {
+  var self = this;
+  this.flashes[m] = color;
+  setTimeout(function () { if (self.flashes[m] === color) delete self.flashes[m]; }, ms || 400);
+};
+
+// 건반 입력: 'right' | 'wrong' | 'almost'(옥타브만 다름) | 'good'(따라 치기 중간) | null
 Quiz.prototype.handle = function (midi, source) {
-  if (this.waiting || this.finished()) return null;
-  var self = this, t = this.target;
-  var ok = midi === t;
+  if (this.waiting || this.finished() || !QUIZ_TYPES[this.type].keys) return null;
+  var self = this, now = nowSec();
+  if (this.lastAt !== undefined && this.lastMidi === midi && now - this.lastAt < (source === 'mic' ? 0.22 : 0.08)) return null;
+  this.lastAt = now; this.lastMidi = midi;
+
+  if (this.type === 'memory') {
+    if (this.demo) return null;
+    var want = this.seq[this.pos];
+    if (midi === want || (source === 'mic' && Math.abs(midi - want) === 12)) {
+      this.flash(want, '#3fd16b', 300);
+      this.pos++;
+      if (this.pos < this.seq.length) return 'good';
+      this.index = this.seq.length;
+      this.waiting = true;
+      setTimeout(function () { self.next(); }, 900);
+      return 'right';
+    }
+    this.flash(midi, '#ff4d4d');
+    this.flash(want, '#3fd16b', 900);
+    this.over = true;
+    return 'wrong';
+  }
+
+  var t = this.target, ok = midi === t;
   // 한 옥타브 안에서만 내는 문제는 마이크가 옥타브를 헷갈려도 인정
   if (!ok && source === 'mic' && Math.abs(midi - t) === 12 && this.level !== 2) ok = true;
-  if (!ok && Math.abs(midi - t) === 12) {
-    this.flashes[midi] = '#ffb020';
-    setTimeout(function () { delete self.flashes[midi]; }, 300);
-    return 'almost';
-  }
-  this.flashes[ok ? t : midi] = ok ? '#3fd16b' : '#ff4d4d';
-  setTimeout(function () { delete self.flashes[ok ? t : midi]; }, 400);
+  if (!ok && Math.abs(midi - t) === 12) { this.flash(midi, '#ffb020', 300); return 'almost'; }
+  this.flash(ok ? t : midi, ok ? '#3fd16b' : '#ff4d4d');
   if (!ok) { this.wrongNow++; return 'wrong'; }
   if (this.wrongNow === 0) this.firstTry++;
   this.index++;
+  if (this.type === 'speed') { this.next(); return 'right'; }
   this.waiting = true;
   if (!this.finished()) setTimeout(function () { self.next(); }, 700);
+  return 'right';
+};
+
+// 버튼 고르기 (계이름 고르기 / 높낮이 / 곡 맞히기)
+Quiz.prototype.choose = function (i) {
+  if (this.waiting || this.finished()) return null;
+  var self = this;
+  if (i !== this.answer) { this.wrongNow++; return 'wrong'; }
+  if (this.wrongNow === 0) this.firstTry++;
+  this.index++;
+  this.waiting = true;
+  if (this.type === 'choice') this.flash(this.target, '#3fd16b', 600);
+  if (!this.finished()) setTimeout(function () { self.next(); }, 900);
   return 'right';
 };

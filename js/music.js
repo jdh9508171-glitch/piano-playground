@@ -69,10 +69,12 @@ var Music = (function () {
     return { low: low, high: high };
   }
 
+  var CAT = { scale: '동요', airplane: '동요', twinkle: '동요', butterfly: '동요', birthday: '동요',
+              joy: '클래식', elise: '클래식', jingle: '캐럴' };
   function song(id, title, emoji, level, bpm, beatsPerBar, melody) {
     var notes = parseMelody(melody);
     return { id: id, title: title, emoji: emoji, level: level, bpm: bpm, beatsPerBar: beatsPerBar,
-             notes: notes, range: rangeFor(notes) };
+             notes: notes, range: rangeFor(notes), cat: CAT[id] || '동요' };
   }
 
   // 저작권이 끝난 동요·클래식 멜로디

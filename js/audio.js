@@ -177,13 +177,14 @@ var Sound = (function () {
   function micLevel() { return mic.detector && mic.stream ? mic.detector.level : 0; }
   function setSensitivity(v) { if (mic.detector) mic.detector.sensitivity = v; }
   function setSpeechFilter(on) { if (mic.detector) mic.detector.speechFilter = on; }
+  function setRecordMode(on) { if (mic.detector) mic.detector.recordMode = on; }
   // 지금 쳐야 할 음들을 알려주면 그 음은 조금 더 너그럽게 인식한다
   function setExpected(notes) { if (mic.detector) mic.detector.expected = notes; }
 
   return {
     unlock: unlock, noteOn: noteOn, noteOff: noteOff, allOff: allOff, click: click, drum: drum,
     recentlyPlayed: recentlyPlayed, startMic: startMic, stopMic: stopMic, micActive: micActive,
-    micLevel: micLevel, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setExpected: setExpected,
+    micLevel: micLevel, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setRecordMode: setRecordMode, setExpected: setExpected,
     isUnlocked: function () { return !!ctx; }
   };
 })();

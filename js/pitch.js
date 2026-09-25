@@ -7,6 +7,7 @@ function PitchDetector(sampleRate) {
   this.speechFilter = true; // 말소리 거르기
   this.maxDrift = 0.07;     // 음높이 흔들림 허용치 (반음 단위)
   this.need = 3;            // 음높이가 몇 번 연속 같아야 인정하는지
+  this.recordMode = false;  // 녹음(노래 만들기): 계속 나오는 음악도 받아 적도록 더 민감하게
   this.expected = null;     // 지금 쳐야 할 음들 {midi: true}. 이 음들은 조금 더 너그럽게 인정
   this.onNote = null;       // function(midi, isOn)
   this.level = 0;           // 0~1, 설정 화면의 소리 크기 막대
@@ -32,6 +33,9 @@ PitchDetector.prototype.configure = function (sampleRate) {
   this.lastEmitted = null;
   this.carry = null;
   this.onsetAge = 100;
+  // 고역 통과 필터 계수 (200Hz, Q=0.7)
+  var w0 = 2 * Math.PI * 200 / this.sr, al = Math.sin(w0) / (2 * 0.7), c = Math.cos(w0), a0 = 1 + al;
+  this.hp = { b0: (1 + c) / 2 / a0, b1: -(1 + c) / a0, b2: (1 + c) / 2 / a0, a1: -2 * c / a0, a2: (1 - al) / a0, x1: 0, x2: 0, y1: 0, y2: 0 };
   this.history = [];
   this.floor = -90;
   this.prevRms = 0;
@@ -45,6 +49,13 @@ PitchDetector.prototype.process = function (input) {
 };
 
 PitchDetector.prototype.push = function (v) {
+  if (this.recordMode) {
+    // 녹음 모드: 베이스·반주의 낮은 소리(약 200Hz 아래)를 깎아서 멜로디가 잘 들리게 (2차 고역 통과 필터)
+    var f = this.hp;
+    var y = f.b0 * v + f.b1 * f.x1 + f.b2 * f.x2 - f.a1 * f.y1 - f.a2 * f.y2;
+    f.x2 = f.x1; f.x1 = v; f.y2 = f.y1; f.y1 = y;
+    v = y;
+  }
   this.buf[this.len++] = v;
   if (this.len >= this.window) {
     this.analyze(this.buf);
@@ -71,7 +82,7 @@ PitchDetector.prototype.emit = function (midi, on) {
 };
 
 PitchDetector.prototype.analyze = function (x) {
-  var W = this.window, H = this.hop, strict = this.speechFilter;
+  var W = this.window, H = this.hop, rec = this.recordMode, strict = this.speechFilter && !rec;
   var rms = rmsOf(x, 0, W);
   var db = 20 * Math.log(Math.max(rms, 1e-9)) / Math.LN10;
   this.level = Math.max(0, Math.min(1, (db + 70) / 60));
@@ -81,6 +92,8 @@ PitchDetector.prototype.analyze = function (x) {
   if (db < this.floor) this.floor = db;
   else if (this.current === null) this.floor = Math.min(this.floor + 1 / this.fps, db, -45);
   var threshold = Math.max(-30 - this.sensitivity * 30, this.floor + 10);   // -30dB ~ -60dB
+  // 녹음 중에는 영상 소리처럼 계속 이어지는 음악을 '주변 소음'으로 오해하지 않도록 바닥 소음을 쓰지 않고 더 작은 소리까지 본다
+  if (rec) threshold = -42 - this.sensitivity * 25;
 
   // 새로 들어온 구간이 바로 앞 구간보다 확 커지면 건반을 새로 친 것
   var oldR = rmsOf(x, W - 2 * H, H), newR = rmsOf(x, W - H, H);
@@ -101,7 +114,7 @@ PitchDetector.prototype.analyze = function (x) {
   if (this.onsetPending && this.onsetAge > this.fps * 0.25) this.onsetPending = false;
 
   var p = db > threshold ? this.yin(x) : null;
-  if (!p || p.confidence < (strict ? 0.85 : 0.75)) {
+  if (!p || p.confidence < (strict ? 0.85 : rec ? 0.6 : 0.75)) {
     if (db < threshold - 6 && this.current !== null) {
       this.emit(this.current, false);
       this.current = null;
@@ -150,6 +163,8 @@ PitchDetector.prototype.analyze = function (x) {
 
 PitchDetector.prototype.yin = function (x) {
   var w = this.window / 2, tauMin = this.tauMin, tauMax = this.tauMax;
+  // 녹음 모드에서는 낮은 도(약 180Hz)보다 낮은 음은 반주로 보고 찾지 않음
+  if (this.recordMode) tauMax = Math.min(tauMax, Math.floor(this.sr / 180));
   var diff = this.diff, cmnd = this.cmnd, tau, j;
   for (tau = 1; tau <= tauMax; tau++) {
     var s = 0;

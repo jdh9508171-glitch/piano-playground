@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
     <div class="spacer"></div>
     <div class="who" id="songsWho"></div>
   </div>
+  <div class="cat-tabs" id="catTabs"></div>
   <div class="grid-wrap"><div class="grid" id="songGrid"></div></div>
   <input type="file" id="midiFile" class="hidden-file">
 </section>
@@ -121,9 +122,14 @@
     <button class="menu-card orange" data-mode="learn"><span class="emoji">🎵</span><b>곡 배우기</b><small>한 음씩 따라 치며 곡을 익혀요</small></button>
     <div class="level-row" id="levelRow"></div>
     <div class="menu-grid">
-      <button class="menu-card green" data-quiz="read"><span class="emoji">🎼</span><b>계이름 퀴즈</b><small>악보를 보고 그 음을 쳐요</small></button>
-      <button class="menu-card blue" data-quiz="find"><span class="emoji">🎯</span><b>건반 찾기</b><small>"높은 레"를 보고 그 자리를 쳐요</small></button>
-      <button class="menu-card purple" data-quiz="ear"><span class="emoji">👂</span><b>소리 듣고 찾기</b><small>들려주는 음을 찾아 쳐요</small></button>
+      <button class="menu-card green" data-quiz="read"><span class="emoji">🎼</span><b>계이름 퀴즈</b><small>악보 보고 그 음 치기</small></button>
+      <button class="menu-card teal" data-quiz="choice"><span class="emoji">🔤</span><b>계이름 고르기</b><small>악보 보고 이름 고르기</small></button>
+      <button class="menu-card blue" data-quiz="find"><span class="emoji">🎯</span><b>건반 찾기</b><small>"높은 레" 자리 치기</small></button>
+      <button class="menu-card red" data-quiz="speed"><span class="emoji">⏱️</span><b>스피드 찾기</b><small>30초 안에 많이 찾기</small></button>
+      <button class="menu-card purple" data-quiz="ear"><span class="emoji">👂</span><b>소리 듣고 찾기</b><small>들려주는 음 찾기</small></button>
+      <button class="menu-card indigo" data-quiz="updown"><span class="emoji">⬆️</span><b>높낮이 맞히기</b><small>올라갔을까 내려갔을까</small></button>
+      <button class="menu-card orange" data-quiz="memory"><span class="emoji">🧠</span><b>따라 치기</b><small>들려준 순서대로 치기</small></button>
+      <button class="menu-card pink" data-quiz="guess"><span class="emoji">🎵</span><b>곡 맞히기</b><small>앞부분 듣고 제목 맞히기</small></button>
     </div>
   </div>
 </section>
@@ -140,6 +146,7 @@
   <div class="progress"><div class="bar" id="quizBar"></div></div>
   <canvas id="quizStaff" class="staff"></canvas>
   <div class="quiz-prompt" id="quizPrompt"></div>
+  <div class="quiz-choices" id="quizChoices"></div>
   <div class="quiz-msg" id="quizMsg"></div>
   <canvas id="quizKeys" class="keys"></canvas>
 </section>
@@ -151,10 +158,16 @@
     <h2>🎙️ 노래 만들기</h2>
   </div>
   <div class="rec-body">
-    <p class="rec-tip" id="recTip">녹음을 누르고 피아노를 치거나, <b>다른 기기(휴대폰·TV)</b>로 피아노 연주 영상을 틀어 주세요.<br>아래 화면 건반으로 직접 쳐서 만들어도 돼요. 한 손 멜로디가 가장 잘 돼요.</p>
+    <div class="yt-row">
+      <input id="ytUrl" class="yt-url" placeholder="📺 유튜브 링크 붙여넣기 (예: '골든 쉬운 피아노' 영상)" autocomplete="off">
+      <button class="pill small red" id="ytLoad">영상 열기</button>
+    </div>
+    <p class="rec-tip" id="recTip">① 유튜브 링크를 넣거나 ② 피아노를 직접 치거나 ③ 아래 화면 건반으로 쳐서 곡을 만들어요. 한 손 멜로디 영상이 가장 잘 돼요.</p>
     <div class="rec-main">
+      <div class="yt-box hidden" id="ytBox"><iframe id="ytFrame" title="유튜브" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
       <button class="rec-btn" id="recBtn">🔴<br><b>녹음 시작</b></button>
-      <div class="rec-info"><div class="rec-time" id="recTime">0:00</div><div class="rec-count" id="recCount">음 0개</div></div>
+      <div class="rec-info"><div class="rec-time" id="recTime">0:00</div><div class="rec-count" id="recCount">음 0개</div>
+        <div class="meter rec-meter"><div id="recMeter"></div></div><div class="rec-now" id="recNow"></div></div>
     </div>
     <canvas id="recStaff" class="staff"></canvas>
     <div class="rec-save hidden" id="recSave">
@@ -223,11 +236,11 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=7"></script>
-<script src="js/pitch.js?v=7"></script>
-<script src="js/audio.js?v=7"></script>
-<script src="js/draw.js?v=7"></script>
-<script src="js/game.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/music.js?v=12"></script>
+<script src="js/pitch.js?v=12"></script>
+<script src="js/audio.js?v=12"></script>
+<script src="js/draw.js?v=12"></script>
+<script src="js/game.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
 </body>
 </html>
