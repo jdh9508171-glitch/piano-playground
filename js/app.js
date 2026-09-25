@@ -633,8 +633,28 @@
       recording = false; setBtn();
       ytCommand('pauseVideo');
       Sound.setRecordMode(false);
-      if (rec.length < 4) { $('recCount').textContent = '음이 너무 적어요. 다시 해 볼까요?'; return; }
-      savedNotes = cleanRecording(rec);
+      var cap = Sound.stopCapture();
+      var touches = rec.filter(function (n) { return n.source === 'touch'; }).length;
+      // 화면 건반으로 만든 곡은 누른 그대로, 마이크로 들은 곡은 녹음 전체를 다시 자세히 분석
+      if (cap && cap.samples.length > cap.sr && touches < rec.length / 2) {
+        $('recCount').textContent = '🔍 녹음을 자세히 분석하는 중… 잠깐만요';
+        $('recBtn').disabled = true;
+        setTimeout(function () {
+          var notes = [];
+          try { notes = transcribeRecording(cap.samples, cap.sr); } catch (e) { notes = []; }
+          $('recBtn').disabled = false;
+          var list = notes.length >= 4 ? notes.map(function (n) { return { midi: n.midi, t: n.t }; }) : rec;
+          finishRecording(list);
+        }, 60);
+        return;
+      }
+      finishRecording(rec);
+    }
+    function finishRecording(list) {
+      if (list.length < 4) { $('recCount').textContent = '음이 너무 적어요. 다시 해 볼까요?'; return; }
+      rec = list; dirty = true;
+      $('recCount').textContent = '음 ' + list.length + '개를 찾았어요! 🔊 들어보고 저장하세요';
+      savedNotes = cleanRecording(list);
       $('recName').value = ytTitle || '내가 만든 노래 ' + (imported.filter(function (x) { return x.id.indexOf('rec-') === 0; }).length + 1);
       $('recSave').classList.remove('hidden');
     }
@@ -650,6 +670,7 @@
       // 녹음할 때는 영상 소리까지 최대한 받아 적도록 녹음 모드로
       Sound.setRecordMode(true);
       recording = true; startedAt = nowSec(); setBtn();
+      Sound.startCapture();
       ytCommand('playVideo');
     };
     $('recPlay').onclick = function () {
@@ -670,11 +691,16 @@
       $('recCount').textContent = '음 0개';
     };
     $('recDiscard').onclick = function () { savedNotes = null; rec = []; dirty = true; $('recSave').classList.add('hidden'); $('recCount').textContent = '음 0개'; };
-    leaveFn = function () { recording = false; ytCommand('pauseVideo'); Sound.setRecordMode(false); Sound.allOff(); };
+    leaveFn = function () { recording = false; ytCommand('pauseVideo'); Sound.stopCapture(); Sound.setRecordMode(false); Sound.allOff(); };
+    // 아이패드는 자기 스피커 소리를 마이크에서 지워 버려서, 같은 기기에서 튼 영상은 못 듣는다
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      $('recTip').innerHTML = '📱 <b>영상은 휴대폰이나 TV로</b> 틀고 아이패드 가까이 두세요 (아이패드는 자기 스피커 소리는 못 들어요).<br>피아노를 직접 치거나, 아래 화면 건반으로 쳐서 만들어도 돼요.';
+      $('ytUrl').parentNode.style.display = 'none';
+    }
 
     noteHandler = function (midi, source, time) {
       if (!recording) return;
-      rec.push({ midi: midi, t: time - startedAt - (source === 'mic' ? LATENCY.mic : 0) });
+      rec.push({ midi: midi, t: time - startedAt - (source === 'mic' ? LATENCY.mic : 0), source: source });
       dirty = true;
     };
     frameFn = function () {
@@ -686,6 +712,7 @@
         $('recTime').textContent = Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2);
         $('recCount').textContent = '음 ' + rec.length + '개';
         if (sec >= 180) stop();   // 최대 3분
+        if (sec >= 170) $('recCount').textContent = '⏰ 곧 끝나요 (최대 3분)';
       }
       kb.hints = {}; kb.flashes = {}; kb.pressed = pressed; kb.letters = settings.letters;
       kb.draw();

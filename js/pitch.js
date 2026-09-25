@@ -48,7 +48,22 @@ PitchDetector.prototype.process = function (input) {
   if (i < n) this.carry = input[i];
 };
 
+// 녹음 저장: 끝난 뒤 전체를 천천히 다시 분석하기 위해 (약 22kHz로 줄인 소리)
+PitchDetector.prototype.startCapture = function () { this.cap = []; this.capChunk = new Float32Array(8192); this.capPos = 0; };
+PitchDetector.prototype.stopCapture = function () {
+  if (!this.cap) return null;
+  var total = this.cap.length * 8192 + this.capPos, out = new Float32Array(total), o = 0;
+  this.cap.forEach(function (c) { out.set(c, o); o += c.length; });
+  out.set(this.capChunk.subarray(0, this.capPos), o);
+  this.cap = null;
+  return out;
+};
+
 PitchDetector.prototype.push = function (v) {
+  if (this.cap) {
+    this.capChunk[this.capPos++] = v;
+    if (this.capPos === 8192) { this.cap.push(this.capChunk); this.capChunk = new Float32Array(8192); this.capPos = 0; }
+  }
   if (this.recordMode) {
     // 녹음 모드: 베이스·반주의 낮은 소리(약 200Hz 아래)를 깎아서 멜로디가 잘 들리게 (2차 고역 통과 필터)
     var f = this.hp;
@@ -202,3 +217,105 @@ PitchDetector.prototype.yin = function (x) {
   }
   return { freq: this.sr / better, confidence: 1 - cmnd[found] };
 };
+
+
+// ───────── 녹음 전체 받아 적기 (녹음이 끝난 뒤, 시간 제약 없이 자세히) ─────────
+// 방법: 소리를 주파수로 나눠(FFT) 보면서
+//  ① 새로 커진 주파수 성분의 합(스펙트럼 변화)이 튀는 곳 = 건반을 친 순간
+//  ② 그 순간 '새로 커진' 성분만 모아서 배음이 가장 잘 맞는 음 = 새로 친 음
+//     (페달로 앞 음이 계속 울리고 반주가 깔려 있어도, 새로 친 음만 골라낼 수 있다)
+function FFT(size) {
+  this.n = size;
+  this.rev = new Uint32Array(size);
+  var bits = Math.round(Math.log(size) / Math.LN2), i;
+  for (i = 0; i < size; i++) { var r = 0, x = i; for (var b = 0; b < bits; b++) { r = (r << 1) | (x & 1); x >>= 1; } this.rev[i] = r; }
+  this.cos = new Float32Array(size / 2); this.sin = new Float32Array(size / 2);
+  for (i = 0; i < size / 2; i++) { this.cos[i] = Math.cos(2 * Math.PI * i / size); this.sin[i] = -Math.sin(2 * Math.PI * i / size); }
+  this.re = new Float32Array(size); this.im = new Float32Array(size);
+  this.win = new Float32Array(size);
+  for (i = 0; i < size; i++) this.win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (size - 1));
+}
+// x[off..off+n) 의 크기 스펙트럼(로그 압축)을 out[0..bins) 에
+FFT.prototype.logMag = function (x, off, out, bins) {
+  var n = this.n, re = this.re, im = this.im, i;
+  for (i = 0; i < n; i++) { var j = this.rev[i]; re[j] = x[off + i] * this.win[i]; im[j] = 0; }
+  for (var size = 2; size <= n; size <<= 1) {
+    var halfSize = size >> 1, step = n / size;
+    for (var st = 0; st < n; st += size) {
+      for (var k = 0; k < halfSize; k++) {
+        var a = st + k, b2 = a + halfSize, c = this.cos[k * step], s = this.sin[k * step];
+        var tr = re[b2] * c - im[b2] * s, ti = re[b2] * s + im[b2] * c;
+        re[b2] = re[a] - tr; im[b2] = im[a] - ti; re[a] += tr; im[a] += ti;
+      }
+    }
+  }
+  for (i = 0; i < bins; i++) out[i] = Math.log(1 + 1000 * Math.sqrt(re[i] * re[i] + im[i] * im[i]));
+};
+// 로그 압축 없이 실제 크기
+FFT.prototype.mag = function (x, off, out, bins) {
+  this.logMag(x, off, out, bins);
+  for (var i = 0; i < bins; i++) out[i] = (Math.exp(out[i]) - 1) / 1000;
+};
+
+var WA = 1.0;
+function transcribeRecording(x, sr, onProgress) {
+  var N = 2048, H = 256, bins = Math.min(N / 2, Math.ceil(4500 * N / sr));
+  var n = Math.max(0, Math.floor((x.length - N) / H));
+  var fft = new FFT(N), prev = new Float32Array(bins), cur = new Float32Array(bins), i, k;
+  var flux = new Float32Array(n), energy = new Float32Array(n), peak = 1e-9;
+  var loBin = Math.floor(150 * N / sr);
+  for (i = 0; i < n; i++) {
+    fft.logMag(x, i * H, cur, bins);
+    var f = 0, e = 0;
+    for (k = loBin; k < bins; k++) { var d = cur[k] - prev[k]; if (d > 0) f += d; e += cur[k]; }
+    flux[i] = i === 0 ? 0 : f; energy[i] = e / bins;
+    if (energy[i] > peak) peak = energy[i];
+    var t = prev; prev = cur; cur = t;
+  }
+
+  // ① 건반 친 순간: 주변 평균보다 확 튀는 스펙트럼 변화
+  var onsets = [], lastOn = -100, refr = Math.round(0.09 * sr / H), win = Math.round(0.6 * sr / H);
+  var gate = peak * 0.25;
+  for (i = 2; i < n - 2; i++) {
+    if (energy[i] < gate) continue;
+    if (!(flux[i] >= flux[i - 1] && flux[i] >= flux[i + 1] && flux[i] >= flux[i - 2] && flux[i] >= flux[i + 2])) continue;
+    var sum = 0, sq = 0, cnt = 0;
+    for (k = Math.max(0, i - win); k < Math.min(n, i + win); k++) { sum += flux[k]; sq += flux[k] * flux[k]; cnt++; }
+    var mean = sum / cnt, sd = Math.sqrt(Math.max(0, sq / cnt - mean * mean));
+    if (flux[i] > mean + 1.2 * sd && flux[i] > mean * 1.6 && i - lastOn > refr) { onsets.push(i); lastOn = i; }
+  }
+
+  // ② 새로 친 음: 친 직후 - 치기 직전 스펙트럼에서 '커진 부분'의 배음 점수가 가장 높은 음
+  var before = new Float32Array(bins), after = new Float32Array(bins), inc = new Float32Array(bins);
+  function binVal(arr, freq) {
+    var b = freq * N / sr;
+    if (b >= bins - 1) return 0;
+    var b0 = Math.floor(b);
+    return Math.max(arr[b0], arr[b0 + 1], b0 > 0 ? arr[b0 - 1] * 0.5 : 0);
+  }
+  // 새로 커진 성분 점수 + 친 직후 소리 자체의 점수(같은 음을 다시 칠 때 대비)를 합쳐서 판단
+  function salience(m) {
+    var f0 = 440 * Math.pow(2, (m - 69) / 12), s = 0, a = 0;
+    for (var h = 1; h <= 8; h++) { var w = 1 / Math.pow(h, 0.6); s += binVal(inc, f0 * h) * w; a += binVal(after, f0 * h) * w; }
+    return s + WA * a;
+  }
+  var notes = [];
+  onsets.forEach(function (o, idx) {
+    fft.mag(x, Math.max(0, (o - 3) * H), before, bins);
+    fft.mag(x, Math.min(x.length - N, (o + 3) * H), after, bins);
+    for (k = 0; k < bins; k++) inc[k] = Math.max(0, after[k] - before[k]);
+    var best = null, bestS = 0;
+    for (var m = 48; m <= 96; m++) { var sc = salience(m); if (sc > bestS) { bestS = sc; best = m; } }
+    if (best === null) return;
+    // 한 옥타브 아래로 착각 방지: 한 옥타브 위 점수도 거의 같으면 위 음으로
+    if (best + 12 <= 96 && salience(best + 12) > bestS * 0.8) best += 12;
+    var t0 = (o * H + N / 2) / sr;
+    notes.push({ midi: best, t: t0, dur: 0.3 });
+    if (onProgress && idx % 20 === 0) onProgress(idx / onsets.length);
+  });
+  for (i = 0; i < notes.length; i++) {
+    var nextT = i + 1 < notes.length ? notes[i + 1].t : notes[i].t + 1;
+    notes[i].dur = Math.max(0.1, Math.min(1.5, nextT - notes[i].t));
+  }
+  return notes;
+}

@@ -204,13 +204,20 @@ var Sound = (function () {
   function setSensitivity(v) { if (mic.detector) mic.detector.sensitivity = v; }
   function setSpeechFilter(on) { if (mic.detector) mic.detector.speechFilter = on; }
   function setRecordMode(on) { if (mic.detector) mic.detector.recordMode = on; }
+  // 녹음하는 동안 마이크 소리를 통째로 저장 → 끝나면 { samples, sr }
+  function startCapture() { if (mic.detector) mic.detector.startCapture(); }
+  function stopCapture() {
+    if (!mic.detector) return null;
+    var s = mic.detector.stopCapture();
+    return s ? { samples: s, sr: mic.detector.sr } : null;
+  }
   // 지금 쳐야 할 음들을 알려주면 그 음은 조금 더 너그럽게 인식한다
   function setExpected(notes) { if (mic.detector) mic.detector.expected = notes; }
 
   return {
     unlock: unlock, noteOn: noteOn, noteOff: noteOff, allOff: allOff, click: click, drum: drum,
     recentlyPlayed: recentlyPlayed, startMic: startMic, stopMic: stopMic, micActive: micActive,
-    micLevel: micLevel, micStatus: micStatus, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setRecordMode: setRecordMode, setExpected: setExpected,
+    micLevel: micLevel, micStatus: micStatus, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setRecordMode: setRecordMode, startCapture: startCapture, stopCapture: stopCapture, setExpected: setExpected,
     isUnlocked: function () { return !!ctx; }
   };
 })();
