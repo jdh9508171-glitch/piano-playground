@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -25,6 +25,7 @@
     <div id="startBox" class="hidden">
       <button class="pill big pink" id="startBtn">🎹 시작하기</button>
       <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
+    <p class="hint version">버전 15</p>
     </div>
   </div>
 </section>
@@ -172,7 +173,8 @@
     <canvas id="recStaff" class="staff"></canvas>
     <div class="rec-save hidden" id="recSave">
       <input id="recName" class="rec-name" maxlength="20" placeholder="곡 이름">
-      <button class="pill blue" id="recPlay">🔊 들어보기</button>
+      <button class="pill purple" id="recRaw">🔊 원래 녹음 듣기</button>
+      <button class="pill blue" id="recPlay">🎹 계이름으로 듣기</button>
       <button class="pill green" id="recKeep">💾 저장</button>
       <button class="pill gray" id="recDiscard">🗑 버리기</button>
     </div>
@@ -229,6 +231,7 @@
     </div>
     <div class="card">
       <h3>👧👦 플레이어</h3>
+      <p class="hint">앱 버전 15</p>
       <div id="playerEdit"></div>
     </div>
   </div>
@@ -237,11 +240,11 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=14"></script>
-<script src="js/pitch.js?v=14"></script>
-<script src="js/audio.js?v=14"></script>
-<script src="js/draw.js?v=14"></script>
-<script src="js/game.js?v=14"></script>
-<script src="js/app.js?v=14"></script>
+<script src="js/music.js?v=15"></script>
+<script src="js/pitch.js?v=15"></script>
+<script src="js/audio.js?v=15"></script>
+<script src="js/draw.js?v=15"></script>
+<script src="js/game.js?v=15"></script>
+<script src="js/app.js?v=15"></script>
 </body>
 </html>

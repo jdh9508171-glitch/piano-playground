@@ -206,6 +206,20 @@ var Sound = (function () {
   function setRecordMode(on) { if (mic.detector) mic.detector.recordMode = on; }
   // 녹음하는 동안 마이크 소리를 통째로 저장 → 끝나면 { samples, sr }
   function startCapture() { if (mic.detector) mic.detector.startCapture(); }
+  // 녹음해 둔 원래 소리 그대로 들려주기
+  var rawSrc = null;
+  function playRaw(samples, sr) {
+    if (!ctx) return;
+    stopRaw();
+    var buf = ctx.createBuffer(1, samples.length, sr);
+    buf.getChannelData(0).set(samples);
+    rawSrc = ctx.createBufferSource();
+    rawSrc.buffer = buf;
+    var g = ctx.createGain(); g.gain.value = 1.5;
+    rawSrc.connect(g); g.connect(ctx.destination);
+    rawSrc.start(0);
+  }
+  function stopRaw() { if (rawSrc) { try { rawSrc.stop(0); } catch (e) {} rawSrc = null; } }
   function stopCapture() {
     if (!mic.detector) return null;
     var s = mic.detector.stopCapture();
@@ -217,7 +231,7 @@ var Sound = (function () {
   return {
     unlock: unlock, noteOn: noteOn, noteOff: noteOff, allOff: allOff, click: click, drum: drum,
     recentlyPlayed: recentlyPlayed, startMic: startMic, stopMic: stopMic, micActive: micActive,
-    micLevel: micLevel, micStatus: micStatus, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setRecordMode: setRecordMode, startCapture: startCapture, stopCapture: stopCapture, setExpected: setExpected,
+    micLevel: micLevel, micStatus: micStatus, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setRecordMode: setRecordMode, startCapture: startCapture, stopCapture: stopCapture, playRaw: playRaw, stopRaw: stopRaw, setExpected: setExpected,
     isUnlocked: function () { return !!ctx; }
   };
 })();

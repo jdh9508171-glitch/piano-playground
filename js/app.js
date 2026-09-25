@@ -594,7 +594,7 @@
 
   // ───────── 노래 만들기 (녹음) ─────────
   screens.record = function () {
-    var rec = [], recording = false, startedAt = 0, dirty = true, savedNotes = null;
+    var rec = [], recording = false, startedAt = 0, dirty = true, savedNotes = null, lastCap = null;
     var kb = keyboards.recKeys || makeKeyboard('recKeys');
     kb.low = 60; kb.high = 84;
     // 유튜브: 영상을 앱 안에 띄우고, 녹음 버튼을 누르면 같이 재생 (소리를 마이크로 들으며 받아 적음)
@@ -634,6 +634,8 @@
       ytCommand('pauseVideo');
       Sound.setRecordMode(false);
       var cap = Sound.stopCapture();
+      lastCap = cap;
+      $('recRaw').style.display = cap && cap.samples.length > cap.sr ? '' : 'none';
       var touches = rec.filter(function (n) { return n.source === 'touch'; }).length;
       // 화면 건반으로 만든 곡은 누른 그대로, 마이크로 들은 곡은 녹음 전체를 다시 자세히 분석
       if (cap && cap.samples.length > cap.sr && touches < rec.length / 2) {
@@ -673,7 +675,9 @@
       Sound.startCapture();
       ytCommand('playVideo');
     };
+    $('recRaw').onclick = function () { Sound.allOff(); if (lastCap) Sound.playRaw(lastCap.samples, lastCap.sr); };
     $('recPlay').onclick = function () {
+      Sound.stopRaw();
       if (!savedNotes) return;
       Sound.allOff();
       savedNotes.forEach(function (n) {
@@ -691,7 +695,7 @@
       $('recCount').textContent = '음 0개';
     };
     $('recDiscard').onclick = function () { savedNotes = null; rec = []; dirty = true; $('recSave').classList.add('hidden'); $('recCount').textContent = '음 0개'; };
-    leaveFn = function () { recording = false; ytCommand('pauseVideo'); Sound.stopCapture(); Sound.setRecordMode(false); Sound.allOff(); };
+    leaveFn = function () { Sound.stopRaw(); recording = false; ytCommand('pauseVideo'); Sound.stopCapture(); Sound.setRecordMode(false); Sound.allOff(); };
     // 아이패드는 자기 스피커 소리를 마이크에서 지워 버려서, 같은 기기에서 튼 영상은 못 듣는다
     if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
       $('recTip').innerHTML = '📱 <b>영상은 휴대폰이나 TV로</b> 틀고 아이패드 가까이 두세요 (아이패드는 자기 스피커 소리는 못 들어요).<br>피아노를 직접 치거나, 아래 화면 건반으로 쳐서 만들어도 돼요.';
@@ -710,13 +714,13 @@
       if (recording) {
         var sec = Math.floor(nowSec() - startedAt);
         $('recTime').textContent = Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2);
-        $('recCount').textContent = '음 ' + rec.length + '개';
+        $('recCount').textContent = '🔴 소리를 모두 저장하는 중… 끝나면 계이름으로 바꿔 드려요';
         if (sec >= 180) stop();   // 최대 3분
         if (sec >= 170) $('recCount').textContent = '⏰ 곧 끝나요 (최대 3분)';
       }
       kb.hints = {}; kb.flashes = {}; kb.pressed = pressed; kb.letters = settings.letters;
       kb.draw();
-      if (dirty) {
+      if (dirty && !recording) {
         dirty = false;
         drawStaff($('recStaff'), rec.slice(-12).map(function (n) { return n.midi; }), rec.length ? Math.min(rec.length, 12) - 1 : null, settings.letters);
       }
