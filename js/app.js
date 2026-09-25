@@ -52,21 +52,67 @@
       if (history.replaceState) history.replaceState(null, '', location.pathname);   // 주소창에서 링크 숨김
     }
   })();
-  function loadFamilySongs() {
+  // 비밀번호로 잠근 가족 곡 (songs/family.enc = openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -md sha256)
+  function decryptFamily(buffer, password) {
+    var data = new Uint8Array(buffer);
+    var salt = data.slice(8, 16), body = data.slice(16);
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return Promise.reject(new Error('no crypto'));
+    return subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveBits'])
+      .then(function (base) {
+        return subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' }, base, 384);
+      })
+      .then(function (bits) {
+        var b = new Uint8Array(bits);
+        return subtle.importKey('raw', b.slice(0, 32), { name: 'AES-CBC' }, false, ['decrypt'])
+          .then(function (key) { return subtle.decrypt({ name: 'AES-CBC', iv: b.slice(32, 48) }, key, body); });
+      })
+      .then(function (plain) { return JSON.parse(new TextDecoder().decode(plain)); });
+  }
+
+  function useFamily(d) {
+    familySongs = d.songs;
+    if (current === 'songs') screens.songs();
+    if (current === 'home') screens.home();
+  }
+
+  function loadFamilySongs(password) {
+    password = password || Store.get('familyPassword', null);
     var pack = Store.get('pack', null);
-    if (!pack) return;
+    if (!password && !pack) return Promise.resolve(false);
     var cached = Store.get('packCache', null);
-    if (cached && cached.songs) familySongs = cached.songs;
-    fetch('https://gist.githubusercontent.com/' + pack + '/raw/family-songs.json?t=' + Date.now())
+    if (cached && cached.songs && !familySongs.length) familySongs = cached.songs;
+    if (password) {
+      return fetch('songs/family.enc?t=' + Date.now())
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(function (buf) { return decryptFamily(buf, password); })
+        .then(function (d) {
+          Store.set('familyPassword', password);
+          Store.set('packCache', d);
+          useFamily(d);
+          return true;
+        })
+        .catch(function (e) { return e && e.name === 'OperationError' ? 'wrong' : !!familySongs.length; });
+    }
+    return fetch('https://gist.githubusercontent.com/' + pack + '/raw/family-songs.json?t=' + Date.now())
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
-        if (!d || !d.songs) return;
-        familySongs = d.songs;
+        if (!d || !d.songs) return false;
         Store.set('packCache', d);
-        if (current === 'songs') screens.songs();
-        if (current === 'home') updateStatus();
+        useFamily(d);
+        return true;
       })
-      .catch(function () { /* 인터넷이 안 되면 저장해 둔 곡을 그대로 쓴다 */ });
+      .catch(function () { return false; /* 인터넷이 안 되면 저장해 둔 곡을 그대로 쓴다 */ });
+  }
+
+  function askFamilyPassword() {
+    var pw = prompt('가족 비밀번호를 입력하세요');
+    if (!pw) return;
+    loadFamilySongs(pw.trim()).then(function (r) {
+      if (r === true) alert('🎉 가족 곡 ' + familySongs.length + '개를 불러왔어요!');
+      else if (r === 'wrong') alert('비밀번호가 틀렸어요.');
+      else alert('곡을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');
+    });
   }
 
   // ───────── 입력 모으기 (화면 건반 / 마이크) ─────────
@@ -164,6 +210,7 @@
       b.addEventListener('click', function () { currentPlayer = p.id; Store.set('currentPlayer', p.id); screens.home(); });
       box.appendChild(b);
     });
+    $('familyBtn').classList.toggle('hidden', familySongs.length > 0);
     updateStatus();
   };
 
@@ -459,6 +506,7 @@
     b.addEventListener('click', function () { go('songs', b.getAttribute('data-mode')); });
   });
 
+  $('familyBtn').addEventListener('click', askFamilyPassword);
   $('startBtn').addEventListener('click', function () {
     Sound.unlock();
     startMicIfNeeded();

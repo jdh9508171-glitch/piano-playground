@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -34,7 +34,10 @@
     <button class="mode pink" data-mode="game"><span class="emoji">🎮</span><b>리듬 게임</b><small>떨어지는 음표를 쳐요</small></button>
     <button class="mode blue" data-go="free"><span class="emoji">🎵</span><b>자유 연주</b><small>마음대로 쳐 봐요</small></button>
   </div>
-  <div class="status" id="status"></div>
+  <div class="bottom-row">
+    <button class="pill small orange hidden" id="familyBtn">🔒 가족 곡 열기</button>
+    <div class="status" id="status"></div>
+  </div>
 </section>
 
 <!-- 곡 고르기 -->
@@ -158,11 +161,11 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=3"></script>
-<script src="js/pitch.js?v=3"></script>
-<script src="js/audio.js?v=3"></script>
-<script src="js/draw.js?v=3"></script>
-<script src="js/game.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script src="js/music.js?v=4"></script>
+<script src="js/pitch.js?v=4"></script>
+<script src="js/audio.js?v=4"></script>
+<script src="js/draw.js?v=4"></script>
+<script src="js/game.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>
