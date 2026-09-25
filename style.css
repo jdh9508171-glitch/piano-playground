@@ -1,0 +1,183 @@
+/* iOS 12 사파리 호환: flex gap, inset, aspect-ratio 등은 쓰지 않는다 */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #fff4e0; }
+body {
+  font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  color: #1d1426;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+}
+button { font-family: inherit; border: 0; cursor: pointer; color: inherit; background: none; padding: 0; }
+h1, h2, h3 { margin: 0; font-weight: 900; }
+
+.screen {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: none; flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+.screen.active { display: flex; }
+.home-bg { background: linear-gradient(135deg, #ffedcc, #ffd6e0); }
+.cream { background: #fff7eb; }
+.sky { background: #e6f7ff; }
+.night { background: linear-gradient(#1a1440, #33195a); }
+.settings { background: #f3f0f7; }
+
+.topbar { display: flex; align-items: center; padding: 10px 16px; flex-shrink: 0; min-height: 70px; }
+.topbar > * { margin-right: 12px; }
+.topbar > *:last-child { margin-right: 0; }
+.topbar h2 { font-size: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+.spacer-v { flex: 1; }
+.white { color: #fff; }
+
+.round {
+  width: 52px; height: 52px; border-radius: 26px; flex-shrink: 0;
+  background: rgba(255,255,255,0.18); color: #fff; font-size: 24px; font-weight: 900;
+}
+.round.dark { background: rgba(0,0,0,0.08); color: #1d1426; }
+
+.pill {
+  border-radius: 999px; color: #fff; font-weight: 900; font-size: 22px;
+  padding: 14px 28px; margin: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+.pill.big { font-size: 26px; padding: 18px 34px; }
+.pill.small { font-size: 18px; padding: 10px 18px; margin: 0 4px; }
+.pill:active, .mode:active, .song:active { -webkit-transform: scale(0.95); transform: scale(0.95); }
+.pink { background: #ff5c9a; } .purple { background: #9b5cf6; } .orange { background: #ff9533; }
+.blue { background: #4d8cf2; } .teal { background: #22b3b3; } .indigo { background: #5b5bd6; }
+.gray { background: #8a8a99; } .green { background: #3fbf66; }
+.hidden { display: none !important; }
+.hint { color: rgba(0,0,0,0.55); font-size: 16px; font-weight: 600; margin: 8px 0 0; line-height: 1.4; }
+.hint.white { color: rgba(255,255,255,0.8); }
+.hint.warn { color: #d33; }
+
+/* 시작 */
+#start { align-items: center; justify-content: center; background: linear-gradient(135deg, #ffc15e, #ff7eb0 55%, #a77bff); }
+.start-box { text-align: center; }
+.start-icon { width: 160px; height: 160px; border-radius: 36px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.start-box h1 { font-size: 54px; color: #fff; margin: 20px 0 24px; text-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+.start-box .hint { color: rgba(255,255,255,0.9); }
+
+/* 홈 */
+.home-title { text-align: center; font-size: 50px; margin-top: -20px; }
+.players { display: flex; justify-content: center; margin: 22px 0; }
+.player {
+  display: flex; align-items: center; background: rgba(255,255,255,0.5); border-radius: 24px;
+  padding: 10px 24px; margin: 0 10px; border: 4px solid transparent;
+  -webkit-transition: transform 0.2s; transition: transform 0.2s; -webkit-transform: scale(0.95); transform: scale(0.95);
+}
+.player.on { background: #fff; border-color: #ff9533; box-shadow: 0 6px 16px rgba(0,0,0,0.12); -webkit-transform: scale(1.05); transform: scale(1.05); }
+.player .pe { font-size: 44px; margin-right: 12px; }
+.player b { display: block; font-size: 26px; text-align: left; }
+.player small { display: block; font-size: 16px; font-weight: 700; text-align: left; }
+.modes { display: flex; justify-content: center; }
+.mode {
+  width: 260px; height: 260px; margin: 0 12px; border-radius: 36px; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.15);
+}
+.mode .emoji { font-size: 76px; }
+.mode b { font-size: 34px; margin-top: 8px; }
+.mode small { font-size: 18px; font-weight: 700; opacity: 0.9; margin-top: 6px; }
+.status {
+  margin: auto auto 20px; background: rgba(255,255,255,0.6); border-radius: 999px;
+  padding: 10px 22px; font-weight: 700; color: rgba(0,0,0,0.6);
+}
+
+/* 곡 목록 */
+.who { font-size: 22px; font-weight: 900; }
+.speed { display: flex; align-items: center; padding: 0 20px 10px; font-weight: 900; font-size: 20px; }
+.speed button { margin-left: 10px; padding: 10px 18px; border-radius: 14px; background: rgba(0,0,0,0.06); font-size: 18px; font-weight: 800; }
+.speed button.on { background: #ff5c9a; color: #fff; }
+.grid-wrap { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 30px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); grid-gap: 18px; }
+.song {
+  position: relative; background: #fff; border-radius: 28px; padding: 18px 10px; text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08); min-height: 210px;
+}
+.song .se { font-size: 54px; }
+.song .st { font-size: 21px; font-weight: 900; height: 54px; display: flex; align-items: center; justify-content: center; line-height: 1.2; }
+.song .sl { font-size: 15px; margin: 2px 0 6px; }
+.song .del { position: absolute; top: 8px; right: 10px; width: 36px; height: 36px; border-radius: 18px; background: rgba(0,0,0,0.06); font-size: 18px; }
+.song.add { background: transparent; border: 3px dashed #ff9533; color: #ff9533; box-shadow: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.song.add b { font-size: 22px; margin-top: 6px; }
+.stars { font-size: 26px; letter-spacing: 2px; }
+.hidden-file { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* 배우기 */
+.progress { position: relative; height: 24px; margin: 0 20px 12px; background: rgba(0,0,0,0.07); border-radius: 12px; overflow: hidden; flex-shrink: 0; }
+.progress .bar { height: 100%; width: 0; background: linear-gradient(90deg, #ff9533, #ff5c9a); border-radius: 12px; -webkit-transition: width 0.3s; transition: width 0.3s; }
+.progress span { position: absolute; left: 0; right: 0; top: 0; text-align: center; font-weight: 800; font-size: 15px; line-height: 24px; }
+.staff { display: block; height: 160px; margin: 0 20px; background: #fff; border-radius: 24px; flex-shrink: 0; width: calc(100% - 40px); }
+.guide { text-align: center; padding: 10px 0; flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 90px; }
+#guideMain { font-size: 40px; font-weight: 900; }
+#guideMsg { font-size: 22px; font-weight: 800; height: 30px; margin-top: 4px; }
+.keys { display: block; width: 100%; height: 36%; flex-shrink: 0; touch-action: none; }
+
+/* 게임 */
+.score { color: #ffd23f; font-size: 26px; font-weight: 900; }
+.combo { color: #ff9f43; font-size: 22px; font-weight: 900; min-width: 110px; }
+.play-area { position: relative; flex: 1; }
+#fall { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#gameKeys { height: 33%; }
+.judge {
+  position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; font-size: 46px; font-weight: 900;
+  text-shadow: 0 3px 8px rgba(0,0,0,0.5); pointer-events: none; opacity: 0;
+}
+.judge.show { -webkit-animation: pop 0.6s ease-out; animation: pop 0.6s ease-out; }
+.judge.perfect { color: #ffd23f; } .judge.good { color: #5ee087; } .judge.miss { color: #aaa; }
+@-webkit-keyframes pop { 0% { opacity: 0; -webkit-transform: scale(0.5); } 20% { opacity: 1; -webkit-transform: scale(1.15); } 70% { opacity: 1; -webkit-transform: scale(1); } 100% { opacity: 0; -webkit-transform: scale(1); } }
+@keyframes pop { 0% { opacity: 0; transform: scale(0.5); } 20% { opacity: 1; transform: scale(1.15); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+.ready { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.ready-emoji { font-size: 76px; }
+.ready-title { font-size: 40px; font-weight: 900; color: #fff; margin: 4px 0 8px; }
+.ready .stars { margin-bottom: 16px; color: #ffd23f; }
+
+/* 자유 연주 */
+.oct { font-size: 20px; }
+.free-note { text-align: center; font-size: 36px; font-weight: 900; color: rgba(0,0,0,0.45); height: 150px; line-height: 150px; flex-shrink: 0; }
+.free-note.big { font-size: 110px; }
+
+/* 설정 */
+.settings-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 40px; }
+.card { background: #fff; border-radius: 20px; padding: 18px 22px; margin: 0 auto 16px; max-width: 760px; }
+.card h3 { font-size: 22px; margin-bottom: 8px; }
+.row { display: flex; align-items: center; min-height: 52px; font-size: 20px; font-weight: 700; }
+.row > span { flex: 1; }
+.row input[type=checkbox] { width: 30px; height: 30px; }
+.row input[type=range] { flex: 2; }
+.meter { flex: 2; height: 14px; background: #eee; border-radius: 7px; overflow: hidden; }
+.meter div { height: 100%; width: 0; background: #3fbf66; }
+.mic-note { width: 80px; text-align: center; font-size: 30px; font-weight: 900; }
+.choice { flex: 1; margin: 0 6px; padding: 12px; border-radius: 14px; background: rgba(0,0,0,0.06); font-size: 22px; font-weight: 900; }
+.choice.on { background: #ff9533; color: #fff; }
+.prow { display: flex; align-items: center; margin: 8px 0; }
+.prow input { flex: 1; font-size: 22px; font-weight: 800; padding: 10px 14px; border: 2px solid #eee; border-radius: 12px; margin-right: 10px; -webkit-user-select: text; user-select: text; font-family: inherit; }
+.prow button { font-size: 34px; width: 56px; height: 56px; border-radius: 28px; background: rgba(0,0,0,0.05); margin-right: 10px; }
+
+/* 결과/일시정지 */
+.overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 10; }
+.panel { background: #fff; border-radius: 32px; padding: 34px 44px; text-align: center; -webkit-animation: grow 0.35s ease-out; animation: grow 0.35s ease-out; }
+.panel h1 { font-size: 40px; }
+.panel .sub { font-size: 22px; font-weight: 800; color: #888; margin: 6px 0 10px; }
+.panel .stars { font-size: 60px; margin: 6px 0; }
+.panel .line { font-size: 21px; font-weight: 700; margin: 4px 0; }
+.panel .record { color: #ff8a00; font-size: 22px; font-weight: 900; margin: 4px 0; }
+.panel.dark { background: transparent; }
+.panel.dark h1 { color: #fff; margin-bottom: 14px; }
+.panel.dark .pill { display: block; margin: 12px auto; min-width: 240px; }
+@-webkit-keyframes grow { from { -webkit-transform: scale(0.7); opacity: 0; } to { -webkit-transform: scale(1); opacity: 1; } }
+@keyframes grow { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 세로 화면이거나 작은 화면 */
+@media (max-width: 900px) {
+  .mode { width: 200px; height: 210px; margin: 0 8px; }
+  .mode .emoji { font-size: 56px; } .mode b { font-size: 26px; } .mode small { font-size: 15px; }
+  .home-title { font-size: 38px; margin-top: 0; }
+  #learnButtons .pill.small { font-size: 15px; padding: 8px 12px; }
+}
+@media (max-height: 640px) {
+  .staff { height: 130px; }
+  .free-note { height: 110px; line-height: 110px; }
+  .free-note.big { font-size: 80px; }
+  #guideMain { font-size: 32px; }
+}

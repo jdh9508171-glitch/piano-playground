@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>피아노 놀이터</title>
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 시작: 소리/마이크는 화면을 한 번 눌러야 켜진다 -->
+<section id="start" class="screen active">
+  <div class="start-box">
+    <img src="icon-512.png" class="start-icon" alt="">
+    <h1>피아노 놀이터</h1>
+    <button class="pill big pink" id="startBtn">🎹 시작하기</button>
+    <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
+  </div>
+</section>
+
+<!-- 홈 -->
+<section id="home" class="screen home-bg">
+  <div class="topbar">
+    <div class="spacer"></div>
+    <button class="round dark" data-go="settings">⚙️</button>
+  </div>
+  <h1 class="home-title">🎹 피아노 놀이터</h1>
+  <div id="players" class="players"></div>
+  <div class="modes">
+    <button class="mode orange" data-mode="learn"><span class="emoji">📖</span><b>배우기</b><small>한 음씩 천천히</small></button>
+    <button class="mode pink" data-mode="game"><span class="emoji">🎮</span><b>리듬 게임</b><small>떨어지는 음표를 쳐요</small></button>
+    <button class="mode blue" data-go="free"><span class="emoji">🎵</span><b>자유 연주</b><small>마음대로 쳐 봐요</small></button>
+  </div>
+  <div class="status" id="status"></div>
+</section>
+
+<!-- 곡 고르기 -->
+<section id="songs" class="screen cream">
+  <div class="topbar">
+    <button class="round dark" data-go="home">‹</button>
+    <h2 id="songsTitle"></h2>
+    <div class="spacer"></div>
+    <div class="who" id="songsWho"></div>
+  </div>
+  <div class="speed" id="speedRow">
+    <span>빠르기</span>
+    <button data-speed="0.6">🐢 느리게</button>
+    <button data-speed="0.8">🐇 보통</button>
+    <button data-speed="1">🚀 원래 속도</button>
+  </div>
+  <div class="grid-wrap"><div class="grid" id="songGrid"></div></div>
+  <input type="file" id="midiFile" class="hidden-file">
+</section>
+
+<!-- 배우기 -->
+<section id="learn" class="screen cream">
+  <div class="topbar">
+    <button class="round dark" id="learnBack">✕</button>
+    <h2 id="learnTitle"></h2>
+    <div class="spacer"></div>
+    <span id="learnButtons">
+      <button class="pill small teal" id="btnTarget">🔈 이 음</button>
+      <button class="pill small purple" id="btnPart">🎧 다음 부분</button>
+      <button class="pill small indigo" id="btnAll">🎵 전체 듣기</button>
+    </span>
+    <button class="pill small gray hidden" id="btnStop">⏹ 그만 듣기</button>
+    <button class="round dark" id="btnRestart">↺</button>
+  </div>
+  <div class="progress"><div class="bar" id="learnBar"></div><span id="learnCount"></span></div>
+  <canvas id="staff" class="staff"></canvas>
+  <div class="guide"><div id="guideMain"></div><div id="guideMsg"></div></div>
+  <canvas id="learnKeys" class="keys"></canvas>
+</section>
+
+<!-- 리듬 게임 -->
+<section id="game" class="screen night">
+  <div class="topbar">
+    <button class="round" id="gameBack">✕</button>
+    <h2 id="gameTitle" class="white"></h2>
+    <div class="spacer"></div>
+    <span id="scoreBox" class="score">⭐ <b id="score">0</b></span>
+    <span id="comboBox" class="combo">콤보 <b id="combo">0</b></span>
+    <button class="round" id="pauseBtn">⏸</button>
+  </div>
+  <div class="play-area">
+    <canvas id="fall"></canvas>
+    <div id="judge" class="judge"></div>
+    <div id="ready" class="ready">
+      <div class="ready-emoji" id="readyEmoji"></div>
+      <div class="ready-title" id="readyTitle"></div>
+      <div class="stars" id="readyStars"></div>
+      <div>
+        <button class="pill big purple" id="btnPreview">🎧 먼저 들어보기</button>
+        <button class="pill big pink" id="btnPlay">🎮 시작!</button>
+      </div>
+      <p class="hint white" id="readyHint"></p>
+    </div>
+  </div>
+  <canvas id="gameKeys" class="keys"></canvas>
+</section>
+
+<!-- 자유 연주 -->
+<section id="free" class="screen sky">
+  <div class="topbar">
+    <button class="round dark" data-go="home">✕</button>
+    <h2>🎵 자유 연주</h2>
+    <div class="spacer"></div>
+    <button class="round dark" id="octDown">‹</button>
+    <b id="octLabel" class="oct"></b>
+    <button class="round dark" id="octUp">›</button>
+  </div>
+  <div id="freeNote" class="free-note">아무 건반이나 쳐 보세요 🎹</div>
+  <canvas id="freeStaff" class="staff"></canvas>
+  <div class="spacer-v"></div>
+  <canvas id="freeKeys" class="keys"></canvas>
+</section>
+
+<!-- 설정 -->
+<section id="settings" class="screen settings">
+  <div class="topbar">
+    <button class="round dark" data-go="home">‹</button>
+    <h2>⚙️ 설정</h2>
+  </div>
+  <div class="settings-body">
+    <div class="card">
+      <h3>🎤 마이크 (피아노 소리 듣기)</h3>
+      <label class="row"><span>마이크 사용</span><input type="checkbox" id="setMic"></label>
+      <div class="row"><span>민감도</span><input type="range" id="setSens" min="0" max="1" step="0.05"></div>
+      <div class="row"><span>소리 크기</span><div class="meter"><div id="micMeter"></div></div><b id="micNote" class="mic-note">-</b></div>
+      <p class="hint">피아노 옆에 아이패드를 두고 건반을 하나씩 쳐서 맞는 음이 나오는지 확인하세요. 잘 안 잡히면 민감도를 올리고, 엉뚱한 음이 잡히면 내려 주세요.</p>
+      <p class="hint warn" id="micWarn"></p>
+    </div>
+    <div class="card">
+      <h3>🎮 게임</h3>
+      <label class="row"><span>드럼 박자 소리</span><input type="checkbox" id="setDrums"></label>
+      <label class="row"><span>게임 중 멜로디 틀기</span><input type="checkbox" id="setGuide"></label>
+      <p class="hint">마이크를 쓸 때는 멜로디를 틀면 인식이 헷갈려서, 게임 중에는 자동으로 꺼져요. 게임 전에 "먼저 들어보기"로 들을 수 있어요.</p>
+    </div>
+    <div class="card">
+      <h3>🔤 음 이름</h3>
+      <div class="row">
+        <button class="choice" data-letters="0">도 레 미</button>
+        <button class="choice" data-letters="1">C D E</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>👧👦 플레이어</h3>
+      <div id="playerEdit"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 일시정지 / 결과 -->
+<div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
+
+<script src="js/music.js"></script>
+<script src="js/pitch.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/game.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
