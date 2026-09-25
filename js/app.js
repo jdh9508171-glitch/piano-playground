@@ -500,7 +500,7 @@
       var missionFail = course && n < 2;
       showResult(song.title, n,
         ['점수 ' + game.score + '점 · 최고 콤보 ' + game.maxCombo,
-         '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss]
+         '완벽 ' + game.perfect + ' · 좋아 ' + (game.good + game.ok) + ' · 놓침 ' + game.miss]
           .concat(missionFail ? ['<b style="color:#e03131">아깝다! 별 2개 이상이면 미션 성공이에요. 다시 도전! 💪</b>'] : [])
           .concat(courseLines(course)), rec,
         [{ label: missionFail ? '🔄 다시 도전' : '🔄 다시', color: 'orange', fn: function () { hideOverlay(); missionFail ? game.start(false) : game.reset(); } },

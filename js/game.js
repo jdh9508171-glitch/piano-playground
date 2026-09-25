@@ -18,9 +18,10 @@ function Game(song, speed, opts) {
   this.countIn = 4;
   this.guide = opts.guide;
   this.drums = opts.drums;
-  // 아이들용이라 넉넉하게: ±0.15초면 완벽, ±0.4초면 좋아요
-  this.perfectWindow = 0.15;
+  // 아이들용이라 넉넉하게: ±0.18초 완벽, ±0.4초 좋아요, ±0.6초까지도 '괜찮아요'로 맞은 것으로
+  this.perfectWindow = 0.18;
   this.goodWindow = 0.40;
+  this.okWindow = 0.60;
   var last = song.notes[song.notes.length - 1];
   this.endTime = (last.beat + last.beats) * this.beat + 1.0;
   this.onJudge = null;    // function(text, cssClass)
@@ -43,7 +44,7 @@ Game.prototype.reset = function () {
     return { midi: n.midi, time: n.beat * spb, dur: n.beats * spb, state: 'pending', sounded: false, hitAt: null };
   });
   this.score = 0; this.combo = 0; this.maxCombo = 0;
-  this.perfect = 0; this.good = 0; this.miss = 0;
+  this.perfect = 0; this.good = 0; this.ok = 0; this.miss = 0;
   this.hints = {}; this.flashes = {}; this.flashUntil = {};
   this.lastHit = {};
   this.lastHitNote = undefined; this.lastHitIndex = -1;
@@ -78,8 +79,8 @@ Game.prototype.resume = function () {
 };
 
 Game.prototype.stars = function () {
-  var acc = (this.perfect + this.good * 0.85) / Math.max(this.notes.length, 1);
-  return acc >= 0.9 ? 3 : acc >= 0.65 ? 2 : acc >= 0.3 ? 1 : 0;
+  var acc = (this.perfect + this.good * 0.85 + this.ok * 0.7) / Math.max(this.notes.length, 1);
+  return acc >= 0.85 ? 3 : acc >= 0.6 ? 2 : acc >= 0.3 ? 1 : 0;
 };
 
 Game.prototype.tick = function () {
@@ -107,7 +108,7 @@ Game.prototype.tick = function () {
       n.sounded = true;
       if (preview || this.guide) Sound.noteOn(n.midi, preview ? 0.8 : 0.45, n.dur * 0.9);
     }
-    if (!preview && n.state === 'pending' && t > n.time + this.goodWindow) {
+    if (!preview && n.state === 'pending' && t > n.time + this.okWindow) {
       n.state = 'miss';
       this.miss++;
       this.combo = 0;
@@ -124,7 +125,7 @@ Game.prototype.tick = function () {
     }
     if (preview) {
       if (n.time <= t && t < n.time + n.dur) hints[n.midi] = true;
-    } else if (n.state === 'pending' && n.time - t < look && n.time - t > -this.goodWindow) {
+    } else if (n.state === 'pending' && n.time - t < look && n.time - t > -this.okWindow) {
       hints[n.midi] = true;
     }
   }
@@ -147,32 +148,36 @@ Game.prototype.handle = function (midi, source, time) {
   // 한 번 친 소리가 두 번 들어오면(마이크 울림 등) 같은 음 두 개가 한꺼번에 사라지므로, 아주 짧은 간격의 같은 음은 한 번만 인정
   var pc = midi % 12;
   if (this.lastHit[pc] !== undefined && time - this.lastHit[pc] < (source === 'mic' ? 0.22 : 0.08)) return;
-  var best = -1, bestD = 1e9;
+  // 판정할 음 고르기: 이미 지나간(늦게 친) 음이 있으면 그 음부터, 없으면 가장 가까운 음
+  var best = -1, bestD = 1e9, late = -1;
   for (var i = 0; i < this.notes.length; i++) {
     var n = this.notes[i];
     if (n.state !== 'pending' || !sameNote(n.midi, midi, source)) continue;
     var d = Math.abs(n.time - t);
+    if (d > this.okWindow) continue;
+    if (n.time <= t && late < 0) late = i;
     if (d < bestD) { bestD = d; best = i; }
   }
-  if (best < 0 || bestD > this.goodWindow) { this.flash(midi, '#ff4d4d'); return; }
-  // 같은 음이 연속으로 나올 때: 방금 맞힌 음과 같은 음이면, 다음 음은 제 타이밍(±0.15초) 근처에서만 인정
-  // (한 번 친 소리가 늦게 한 번 더 들어와서 두 개가 한꺼번에 사라지는 것 방지)
-  if (this.lastHitNote !== undefined && this.notes[best].midi % 12 === this.lastHitNote.midi % 12 &&
+  if (late >= 0 && late !== best) { best = late; bestD = t - this.notes[late].time; }
+  if (best < 0) { this.flash(midi, '#ff4d4d'); return; }
+  // 같은 음이 연속으로 나올 때: 방금(0.35초 안에) 같은 음을 맞혔다면, 다음 음은 제 타이밍 근처에서만 인정
+  // (한 번 친 소리가 조금 늦게 한 번 더 들어와서 두 개가 한꺼번에 사라지는 것 방지)
+  if (this.lastHit[pc] !== undefined && time - this.lastHit[pc] < 0.35 &&
       this.notes[best].time - t > this.perfectWindow && best !== this.lastHitIndex) return;
-  var perfect = bestD <= this.perfectWindow, note = this.notes[best];
+  var perfect = bestD <= this.perfectWindow, okOnly = bestD > this.goodWindow, note = this.notes[best];
   midi = note.midi;
   this.lastHit[pc] = time;
   this.lastHitNote = note; this.lastHitIndex = best;
-  note.state = perfect ? 'perfect' : 'good';
+  note.state = perfect ? 'perfect' : okOnly ? 'ok' : 'good';
   note.hitAt = this.time();
   this.combo++;
   this.maxCombo = Math.max(this.maxCombo, this.combo);
-  if (perfect) this.perfect++; else this.good++;
+  if (perfect) this.perfect++; else if (okOnly) this.ok++; else this.good++;
   this.energy = Math.min(100, this.energy + (perfect ? 6 : 4));
-  this.score += (perfect ? 100 : 60) + Math.min(this.combo, 50) * 2;
+  this.score += (perfect ? 100 : okOnly ? 40 : 60) + Math.min(this.combo, 50) * 2;
   if (this.onJudge) {
     if (perfect) this.onJudge(this.combo >= 5 ? '완벽해요! ' + this.combo + '콤보' : '완벽해요!', 'perfect');
-    else this.onJudge('좋아요!', 'good');
+    else this.onJudge(okOnly ? '괜찮아요!' : '좋아요!', 'good');
   }
   this.flash(midi, '#3fd16b');
 };
