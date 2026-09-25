@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
     <div id="startBox" class="hidden">
       <button class="pill big pink" id="startBtn">🎹 시작하기</button>
       <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
-    <p class="hint version">버전 15</p>
+    <p class="hint version">버전 16</p>
     </div>
   </div>
 </section>
@@ -152,31 +152,57 @@
   <canvas id="quizKeys" class="keys"></canvas>
 </section>
 
-<!-- 노래 만들기 (녹음) -->
+<!-- 노래 만들기: ① 녹음만 → ② 계이름으로 바꾸기 → ③ 저장·연주 -->
 <section id="record" class="screen sky">
   <div class="topbar">
     <button class="round dark" data-go="home">✕</button>
     <h2>🎙️ 노래 만들기</h2>
+    <div class="spacer"></div>
+    <div class="steps"><span id="st1">① 녹음</span> › <span id="st2">② 계이름 바꾸기</span> › <span id="st3">③ 저장·연주</span></div>
   </div>
   <div class="rec-body">
-    <div class="yt-row">
-      <input id="ytUrl" class="yt-url" placeholder="📺 유튜브 링크 붙여넣기 (예: '골든 쉬운 피아노' 영상)" autocomplete="off">
-      <button class="pill small red" id="ytLoad">영상 열기</button>
+    <div id="recStep1">
+      <div class="yt-row" id="ytRow">
+        <input id="ytUrl" class="yt-url" placeholder="📺 유튜브 링크 붙여넣기 (예: '골든 쉬운 피아노' 영상)" autocomplete="off">
+        <button class="pill small red" id="ytLoad">영상 열기</button>
+      </div>
+      <p class="rec-tip" id="recTip">🔴을 누르고 피아노를 치거나 연주 영상을 틀어 주세요. 소리를 그대로 녹음만 해요.</p>
+      <div class="rec-main">
+        <div class="yt-box hidden" id="ytBox"><iframe id="ytFrame" title="유튜브" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
+        <button class="rec-btn" id="recBtn">🔴<br><b>녹음 시작</b></button>
+        <div class="rec-info"><div class="rec-time" id="recTime">0:00</div><div class="rec-count" id="recCount"></div>
+          <div class="meter rec-meter"><div id="recMeter"></div></div><div class="rec-now" id="recNow"></div></div>
+      </div>
+      <div id="recAfter" class="hidden rec-actions">
+        <button class="pill purple" id="recRaw">🔊 녹음 들어보기</button>
+        <button class="pill gray" id="recAgain">🔄 다시 녹음</button>
+        <button class="pill big green" id="recConvert">➡️ 계이름으로 바꾸기</button>
+      </div>
     </div>
-    <p class="rec-tip" id="recTip">① 유튜브 링크를 넣거나 ② 피아노를 직접 치거나 ③ 아래 화면 건반으로 쳐서 곡을 만들어요. 한 손 멜로디 영상이 가장 잘 돼요.</p>
-    <div class="rec-main">
-      <div class="yt-box hidden" id="ytBox"><iframe id="ytFrame" title="유튜브" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
-      <button class="rec-btn" id="recBtn">🔴<br><b>녹음 시작</b></button>
-      <div class="rec-info"><div class="rec-time" id="recTime">0:00</div><div class="rec-count" id="recCount">음 0개</div>
-        <div class="meter rec-meter"><div id="recMeter"></div></div><div class="rec-now" id="recNow"></div></div>
+
+    <div id="recStep2" class="hidden">
+      <div class="rec-result" id="recResult"></div>
+      <canvas id="recStaff" class="staff"></canvas>
+      <div class="speed-row small" id="recSensRow"><span>덜 찾기</span><input type="range" id="recSens" min="0" max="1" step="0.1"><span>더 많이 찾기</span>
+        <button class="pill small blue" id="recReanalyze">🔄 다시 바꾸기</button></div>
+      <div class="rec-actions">
+        <button class="pill purple" id="recRaw2">🔊 원래 녹음</button>
+        <button class="pill blue" id="recPlay">🎹 계이름으로 듣기</button>
+        <button class="pill gray" id="recBack">⬅️ 다시 녹음</button>
+      </div>
+      <div class="rec-actions">
+        <input id="recName" class="rec-name" maxlength="20" placeholder="곡 이름">
+        <button class="pill big green" id="recKeep">💾 저장</button>
+      </div>
     </div>
-    <canvas id="recStaff" class="staff"></canvas>
-    <div class="rec-save hidden" id="recSave">
-      <input id="recName" class="rec-name" maxlength="20" placeholder="곡 이름">
-      <button class="pill purple" id="recRaw">🔊 원래 녹음 듣기</button>
-      <button class="pill blue" id="recPlay">🎹 계이름으로 듣기</button>
-      <button class="pill green" id="recKeep">💾 저장</button>
-      <button class="pill gray" id="recDiscard">🗑 버리기</button>
+
+    <div id="recStep3" class="hidden">
+      <div class="rec-result">🎉 저장했어요! 바로 쳐 볼까요?</div>
+      <div class="rec-actions">
+        <button class="pill big pink" id="recToGame">🎮 게임으로</button>
+        <button class="pill big orange" id="recToLearn">📖 배우기로</button>
+        <button class="pill gray" id="recNew">🎙️ 새로 만들기</button>
+      </div>
     </div>
   </div>
   <canvas id="recKeys" class="keys rec-keys"></canvas>
@@ -231,7 +257,7 @@
     </div>
     <div class="card">
       <h3>👧👦 플레이어</h3>
-      <p class="hint">앱 버전 15</p>
+      <p class="hint">앱 버전 16</p>
       <div id="playerEdit"></div>
     </div>
   </div>
@@ -240,11 +266,11 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=15"></script>
-<script src="js/pitch.js?v=15"></script>
-<script src="js/audio.js?v=15"></script>
-<script src="js/draw.js?v=15"></script>
-<script src="js/game.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
+<script src="js/music.js?v=16"></script>
+<script src="js/pitch.js?v=16"></script>
+<script src="js/audio.js?v=16"></script>
+<script src="js/draw.js?v=16"></script>
+<script src="js/game.js?v=16"></script>
+<script src="js/app.js?v=16"></script>
 </body>
 </html>

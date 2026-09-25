@@ -592,139 +592,171 @@
     leaveFn = function () { quiz.gen++; Sound.allOff(); };
   };
 
-  // ───────── 노래 만들기 (녹음) ─────────
+  // ───────── 노래 만들기: ① 녹음만 → ② 계이름으로 바꾸기 → ③ 저장·연주 ─────────
   screens.record = function () {
-    var rec = [], recording = false, startedAt = 0, dirty = true, savedNotes = null, lastCap = null;
+    var rec = [], recording = false, startedAt = 0, savedNotes = null, lastCap = null, playGen = 0, savedSong = null;
     var kb = keyboards.recKeys || makeKeyboard('recKeys');
     kb.low = 60; kb.high = 84;
-    // 유튜브: 영상을 앱 안에 띄우고, 녹음 버튼을 누르면 같이 재생 (소리를 마이크로 들으며 받아 적음)
-    var ytId = null;
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    function step(n) {
+      [1, 2, 3].forEach(function (i) {
+        $('recStep' + i).classList.toggle('hidden', i !== n);
+        $('st' + i).classList.toggle('on', i === n);
+      });
+      $('recKeys').style.display = n === 1 ? '' : 'none';
+      Object.keys(keyboards).forEach(function (k) { keyboards[k].sig = ''; });
+    }
+
+    // 유튜브: 영상을 앱 안에 띄우고, 녹음 버튼을 누르면 같이 재생
+    var ytId = null, ytTitle = '';
     $('ytBox').classList.add('hidden');
     $('ytFrame').src = 'about:blank';
     function ytCommand(func) {
       if (!ytId) return;
       try { $('ytFrame').contentWindow.postMessage(JSON.stringify({ event: 'command', func: func, args: [] }), '*'); } catch (e) {}
     }
-    function parseYouTube(url) {
-      var m = /(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/.exec(url || '');
-      return m ? m[1] : null;
-    }
     $('ytLoad').onclick = function () {
-      var id = parseYouTube($('ytUrl').value.trim());
-      if (!id) { alert('유튜브 링크를 확인해 주세요.\n(유튜브 앱에서 공유 → 링크 복사 후 붙여넣기)'); return; }
-      ytId = id;
-      $('ytFrame').src = 'https://www.youtube.com/embed/' + id + '?playsinline=1&enablejsapi=1&rel=0&modestbranding=1';
+      var m = /(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/.exec($('ytUrl').value.trim());
+      if (!m) { alert('유튜브 링크를 확인해 주세요.\n(유튜브 앱에서 공유 → 링크 복사 후 붙여넣기)'); return; }
+      ytId = m[1];
+      $('ytFrame').src = 'https://www.youtube.com/embed/' + ytId + '?playsinline=1&enablejsapi=1&rel=0&modestbranding=1';
       $('ytBox').classList.remove('hidden');
-      $('recTip').innerHTML = '영상이 나오면 <b>🔴 녹음 시작</b>을 누르세요. 영상이 저절로 안 나오면 영상의 ▶️도 눌러 주세요.';
       $('ytUrl').blur();
-      // 영상 제목을 곡 이름으로 쓰기
-      fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id))
-        .then(function (r) { return r.json(); })
-        .then(function (d) { ytTitle = (d.title || '').slice(0, 20); })
-        .catch(function () {});
+      fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + ytId))
+        .then(function (r) { return r.json(); }).then(function (d) { ytTitle = (d.title || '').slice(0, 20); }).catch(function () {});
     };
-    var ytTitle = '';
+    // 아이패드는 자기 스피커 소리를 마이크에서 지워 버려서, 같은 기기에서 튼 영상은 못 듣는다
+    $('ytRow').style.display = isIOS ? 'none' : '';
+    $('recTip').innerHTML = isIOS
+      ? '🔴을 누르고 피아노를 치거나, <b>휴대폰·TV로</b> 연주 영상을 틀어 아이패드 가까이 두세요.<br>지금은 소리를 <b>그대로 녹음만</b> 해요. 계이름은 다음 단계에서 바꿔요.'
+      : '🔴을 누르고 피아노를 치거나 연주 영상을 틀어 주세요. 소리를 <b>그대로 녹음만</b> 해요.';
 
     function setBtn() {
       $('recBtn').classList.toggle('on', recording);
       $('recBtn').innerHTML = recording ? '⏹<br><b>녹음 끝</b>' : '🔴<br><b>녹음 시작</b>';
     }
-    function stop() {
+    function stopPlayback() { playGen++; Sound.stopRaw(); Sound.allOff(); }
+
+    // ① 녹음
+    function reset1() {
+      stopPlayback();
+      rec = []; lastCap = null; savedNotes = null;
+      $('recTime').textContent = '0:00';
+      $('recCount').textContent = Sound.micActive() ? '' : '⚠️ 마이크가 꺼져 있어요 (녹음을 누르면 켜요)';
+      $('recAfter').classList.add('hidden');
+      setBtn(); step(1);
+    }
+    $('recBtn').onclick = function () {
+      if (recording) { stopRecording(); return; }
+      if (!Sound.micActive()) { settings.mic = true; saveSettings(); startMicIfNeeded(); }
+      stopPlayback();
+      rec = []; lastCap = null;
+      $('recAfter').classList.add('hidden');
+      Sound.setRecordMode(true);
+      Sound.startCapture();
+      recording = true; startedAt = nowSec(); setBtn();
+      $('recCount').textContent = '🔴 소리를 그대로 녹음하는 중…';
+      ytCommand('playVideo');
+    };
+    function stopRecording() {
       recording = false; setBtn();
       ytCommand('pauseVideo');
       Sound.setRecordMode(false);
-      var cap = Sound.stopCapture();
-      lastCap = cap;
-      $('recRaw').style.display = cap && cap.samples.length > cap.sr ? '' : 'none';
-      var touches = rec.filter(function (n) { return n.source === 'touch'; }).length;
-      // 화면 건반으로 만든 곡은 누른 그대로, 마이크로 들은 곡은 녹음 전체를 다시 자세히 분석
-      if (cap && cap.samples.length > cap.sr && touches < rec.length / 2) {
-        $('recCount').textContent = '🔍 녹음을 자세히 분석하는 중… 잠깐만요';
-        $('recBtn').disabled = true;
-        setTimeout(function () {
+      lastCap = Sound.stopCapture();
+      var secs = Math.round(nowSec() - startedAt);
+      $('recCount').textContent = '✅ ' + secs + '초 녹음했어요. 들어보고 계이름으로 바꿔요!';
+      $('recRaw').style.display = lastCap && lastCap.samples.length > lastCap.sr ? '' : 'none';
+      $('recAfter').classList.remove('hidden');
+    }
+    $('recRaw').onclick = $('recRaw2').onclick = function () { stopPlayback(); if (lastCap) Sound.playRaw(lastCap.samples, lastCap.sr); };
+    $('recAgain').onclick = reset1;
+    $('recBack').onclick = reset1;
+
+    // ② 계이름으로 바꾸기
+    var sens = Store.get('recSens', 0.5);
+    $('recSens').value = sens;
+    $('recSens').oninput = function () { sens = +this.value; Store.set('recSens', sens); };
+    function convert() {
+      stopPlayback();
+      var touches = rec.filter(function (n) { return n.source === 'touch'; });
+      var useAudio = lastCap && lastCap.samples.length > lastCap.sr && touches.length < 4;
+      $('recSensRow').style.display = useAudio ? '' : 'none';
+      step(2);
+      $('recResult').textContent = '🔍 녹음을 자세히 분석하는 중… 잠깐만요';
+      setTimeout(function () {
+        var list;
+        if (useAudio) {
           var notes = [];
-          try { notes = transcribeRecording(cap.samples, cap.sr); } catch (e) { notes = []; }
-          $('recBtn').disabled = false;
-          var list = notes.length >= 4 ? notes.map(function (n) { return { midi: n.midi, t: n.t }; }) : rec;
-          finishRecording(list);
-        }, 60);
-        return;
-      }
-      finishRecording(rec);
+          try { notes = transcribeRecording(lastCap.samples, lastCap.sr, null, sens); } catch (e) { notes = []; }
+          list = notes.map(function (n) { return { midi: n.midi, t: n.t }; });
+        } else {
+          list = touches;
+        }
+        if (list.length < 4) {
+          savedNotes = null;
+          $('recResult').textContent = '😢 음을 거의 못 찾았어요. "더 많이 찾기" 쪽으로 옮기고 다시 바꾸거나, 다시 녹음해 주세요';
+          drawStaff($('recStaff'), [], null, settings.letters);
+          return;
+        }
+        savedNotes = cleanRecording(list);
+        $('recResult').textContent = '🎵 음 ' + savedNotes.length + '개를 찾았어요! 원래 녹음과 비교해서 들어보세요';
+        drawStaff($('recStaff'), savedNotes.slice(0, 14).map(function (n) { return n[0]; }), null, settings.letters);
+        if (!$('recName').value) $('recName').value = ytTitle || '내가 만든 노래 ' + (imported.filter(function (x) { return x.id.indexOf('rec-') === 0; }).length + 1);
+      }, 60);
     }
-    function finishRecording(list) {
-      if (list.length < 4) { $('recCount').textContent = '음이 너무 적어요. 다시 해 볼까요?'; return; }
-      rec = list; dirty = true;
-      $('recCount').textContent = '음 ' + list.length + '개를 찾았어요! 🔊 들어보고 저장하세요';
-      savedNotes = cleanRecording(list);
-      $('recName').value = ytTitle || '내가 만든 노래 ' + (imported.filter(function (x) { return x.id.indexOf('rec-') === 0; }).length + 1);
-      $('recSave').classList.remove('hidden');
-    }
-    $('recSave').classList.add('hidden');
-    $('recTime').textContent = '0:00';
-    $('recCount').textContent = Sound.micActive() ? '음 0개' : '⚠️ 마이크가 꺼져 있어요 (설정에서 켜 주세요)';
-    setBtn();
-    $('recBtn').onclick = function () {
-      if (recording) { stop(); return; }
-      if (!Sound.micActive()) { settings.mic = true; saveSettings(); startMicIfNeeded(); }
-      rec = []; savedNotes = null; dirty = true;
-      $('recSave').classList.add('hidden');
-      // 녹음할 때는 영상 소리까지 최대한 받아 적도록 녹음 모드로
-      Sound.setRecordMode(true);
-      recording = true; startedAt = nowSec(); setBtn();
-      Sound.startCapture();
-      ytCommand('playVideo');
-    };
-    $('recRaw').onclick = function () { Sound.allOff(); if (lastCap) Sound.playRaw(lastCap.samples, lastCap.sr); };
+    $('recConvert').onclick = convert;
+    $('recReanalyze').onclick = convert;
     $('recPlay').onclick = function () {
-      Sound.stopRaw();
       if (!savedNotes) return;
-      Sound.allOff();
+      stopPlayback();
+      var gen = playGen;
       savedNotes.forEach(function (n) {
-        setTimeout(function () { Sound.noteOn(n[0], 0.8, n[2] * 0.9); }, n[1] * 1000);
+        setTimeout(function () { if (gen === playGen) Sound.noteOn(n[0], 0.8, n[2] * 0.9); }, n[1] * 1000);
       });
     };
+
+    // ③ 저장 → 바로 게임·배우기
     $('recKeep').onclick = function () {
       if (!savedNotes) return;
-      imported.push({ id: 'rec-' + Date.now(), title: $('recName').value.trim() || '내가 만든 노래', emoji: '🎙️',
-                      bpm: 60, beatsPerBar: 4, notes: savedNotes });
+      stopPlayback();
+      var entry = { id: 'rec-' + Date.now(), title: $('recName').value.trim() || '내가 만든 노래', emoji: '🎙️',
+                    bpm: 60, beatsPerBar: 4, notes: savedNotes };
+      imported.push(entry);
       Store.set('imported', imported);
-      alert('🎉 저장했어요! 곡 목록에서 배우기·게임으로 쳐 볼 수 있어요.');
-      savedNotes = null; rec = []; dirty = true;
-      $('recSave').classList.add('hidden');
-      $('recCount').textContent = '음 0개';
+      savedSong = toSong(entry, true);
+      $('recName').value = '';
+      step(3);
     };
-    $('recDiscard').onclick = function () { savedNotes = null; rec = []; dirty = true; $('recSave').classList.add('hidden'); $('recCount').textContent = '음 0개'; };
-    leaveFn = function () { Sound.stopRaw(); recording = false; ytCommand('pauseVideo'); Sound.stopCapture(); Sound.setRecordMode(false); Sound.allOff(); };
-    // 아이패드는 자기 스피커 소리를 마이크에서 지워 버려서, 같은 기기에서 튼 영상은 못 듣는다
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      $('recTip').innerHTML = '📱 <b>영상은 휴대폰이나 TV로</b> 틀고 아이패드 가까이 두세요 (아이패드는 자기 스피커 소리는 못 들어요).<br>피아노를 직접 치거나, 아래 화면 건반으로 쳐서 만들어도 돼요.';
-      $('ytUrl').parentNode.style.display = 'none';
-    }
+    $('recToGame').onclick = function () { if (savedSong) go('game', savedSong); };
+    $('recToLearn').onclick = function () { if (savedSong) go('learn', savedSong); };
+    $('recNew').onclick = reset1;
 
+    leaveFn = function () {
+      stopPlayback();
+      if (recording) { recording = false; Sound.stopCapture(); }
+      ytCommand('pauseVideo'); Sound.setRecordMode(false);
+    };
+
+    // 화면 건반으로 직접 쳐서 만들 때 (녹음 중에만 기록)
     noteHandler = function (midi, source, time) {
       if (!recording) return;
       rec.push({ midi: midi, t: time - startedAt - (source === 'mic' ? LATENCY.mic : 0), source: source });
-      dirty = true;
     };
     frameFn = function () {
-      // 마이크가 듣고 있는지 바로 보이게: 소리 크기 막대 + 지금 들리는 음
       $('recMeter').style.width = Math.round(Sound.micLevel() * 100) + '%';
-      $('recNow').textContent = !Sound.micActive() ? '🎤 마이크 꺼짐' : lastNote === null ? '🎤 듣는 중…' : '🎤 ' + Music.fullName(lastNote, settings.letters);
+      $('recNow').textContent = !Sound.micActive() ? '🎤 마이크 꺼짐' : '🎤 마이크 켜짐';
       if (recording) {
         var sec = Math.floor(nowSec() - startedAt);
         $('recTime').textContent = Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2);
-        $('recCount').textContent = '🔴 소리를 모두 저장하는 중… 끝나면 계이름으로 바꿔 드려요';
-        if (sec >= 180) stop();   // 최대 3분
-        if (sec >= 170) $('recCount').textContent = '⏰ 곧 끝나요 (최대 3분)';
+        if (sec >= 180) stopRecording();   // 최대 3분
       }
-      kb.hints = {}; kb.flashes = {}; kb.pressed = pressed; kb.letters = settings.letters;
-      kb.draw();
-      if (dirty && !recording) {
-        dirty = false;
-        drawStaff($('recStaff'), rec.slice(-12).map(function (n) { return n.midi; }), rec.length ? Math.min(rec.length, 12) - 1 : null, settings.letters);
+      if ($('recKeys').style.display !== 'none') {
+        kb.hints = {}; kb.flashes = {}; kb.pressed = pressed; kb.letters = settings.letters;
+        kb.draw();
       }
     };
+    reset1();
   };
 
   // 녹음한 음들을 곡으로 정리: 너무 붙어 있는 같은 음 합치기, 시작을 0으로, 길이는 다음 음까지

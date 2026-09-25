@@ -197,6 +197,10 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .rec-time { font-size: 54px; font-weight: 900; }
 .rec-count { font-size: 22px; font-weight: 800; color: rgba(0,0,0,0.55); }
 .rec-save { margin-top: 10px; }
+.steps { font-size: 17px; font-weight: 800; color: rgba(0,0,0,0.35); }
+.steps span.on { color: #ff5c9a; }
+.rec-actions { margin-top: 10px; }
+.rec-result { font-size: 24px; font-weight: 900; margin: 4px 0 10px; }
 .yt-row { display: flex; justify-content: center; align-items: center; margin-bottom: 8px; }
 .yt-url { width: 520px; max-width: 70%; font-size: 18px; font-weight: 700; padding: 12px 14px; border: 2px solid #ddd; border-radius: 14px; margin-right: 8px; -webkit-user-select: text; user-select: text; font-family: inherit; }
 .pill.red { background: #ef4444; }

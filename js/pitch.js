@@ -258,7 +258,9 @@ FFT.prototype.mag = function (x, off, out, bins) {
 };
 
 var WA = 1.0;
-function transcribeRecording(x, sr, onProgress) {
+function transcribeRecording(x, sr, onProgress, sens) {
+  // sens 0(덜 찾기) ~ 1(더 많이 찾기), 기본 0.5
+  if (sens === undefined || sens === null) sens = 0.5;
   var N = 2048, H = 256, bins = Math.min(N / 2, Math.ceil(4500 * N / sr));
   var n = Math.max(0, Math.floor((x.length - N) / H));
   var fft = new FFT(N), prev = new Float32Array(bins), cur = new Float32Array(bins), i, k;
@@ -275,14 +277,14 @@ function transcribeRecording(x, sr, onProgress) {
 
   // ① 건반 친 순간: 주변 평균보다 확 튀는 스펙트럼 변화
   var onsets = [], lastOn = -100, refr = Math.round(0.09 * sr / H), win = Math.round(0.6 * sr / H);
-  var gate = peak * 0.25;
+  var gate = peak * (0.35 - 0.2 * sens);
   for (i = 2; i < n - 2; i++) {
     if (energy[i] < gate) continue;
     if (!(flux[i] >= flux[i - 1] && flux[i] >= flux[i + 1] && flux[i] >= flux[i - 2] && flux[i] >= flux[i + 2])) continue;
     var sum = 0, sq = 0, cnt = 0;
     for (k = Math.max(0, i - win); k < Math.min(n, i + win); k++) { sum += flux[k]; sq += flux[k] * flux[k]; cnt++; }
     var mean = sum / cnt, sd = Math.sqrt(Math.max(0, sq / cnt - mean * mean));
-    if (flux[i] > mean + 1.2 * sd && flux[i] > mean * 1.6 && i - lastOn > refr) { onsets.push(i); lastOn = i; }
+    if (flux[i] > mean + (1.8 - 1.2 * sens) * sd && flux[i] > mean * (1.9 - 0.6 * sens) && i - lastOn > refr) { onsets.push(i); lastOn = i; }
   }
 
   // ② 새로 친 음: 친 직후 - 치기 직전 스펙트럼에서 '커진 부분'의 배음 점수가 가장 높은 음
