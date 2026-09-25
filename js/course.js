@@ -21,7 +21,7 @@ var COURSE = [
       { builtin: 'jingle' }
     ]
   },
-  { id: 's2', world: '바이엘 초원', c1: '#eafbc9', c2: '#8ed36b', deco: '🐑 🌾 ☁️ 🌻 🐝 🌾', name: '바이엘 상', emoji: '🌿', book: '바이엘 상', desc: '한 옥타브(도~높은 도)와 8분음표', goal: 0.8, songs: [
+  { id: 's2', world: '바이엘 초원', c1: '#eafbc9', c2: '#8ed36b', deco: '🐑 🌾 ☁️ 🌻 🐝 🌾', name: '바이엘 상', emoji: '🌿', book: '바이엘 상 수준', desc: '바이엘 연습곡과 한 옥타브 노래', goal: 0.8, songs: [
       { id: 'beyer12', title: '바이엘 12번', bpm: 90, melody: 'C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 G4 F4 E4 D4 E4 C4 E4 D4 C4:4' },
       { id: 'beyer14', title: '바이엘 14번', bpm: 90, melody: 'C4 D4 E4 F4 G4 F4 E4 D4 C4:4 G4:4 C4 D4 E4 F4 G4 F4 E4 D4 C4:4 G4:4 C4 D4 E4 F4 G4 F4 E4 D4 C4 G4 C4 G4 C4:4' },
       { id: 'beyer15', title: '바이엘 15번', bpm: 90, melody: 'C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 E4:2 D4:2 C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 E4 D4 C4:2 D4 E4 F4 E4 D4:4 E4 F4 G4 F4 E4:3 D4 C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 E4 D4 C4:2' },
@@ -33,14 +33,14 @@ var COURSE = [
       { id: 'yankee', title: '양키 두들', bpm: 110, melody: 'C4 C4 D4 E4 C4 E4 D4 G3 C4 C4 D4 E4 C4:2 B3:2 C4 C4 D4 E4 F4 E4 D4 C4 B3 G3 A3 B3 C4:2 C4:2' },
       { builtin: 'joy' }
     ] },
-  { id: 's3', world: '클로버 언덕', c1: '#d8f7e6', c2: '#4cc38a', deco: '🍀 🐇 🌷 🍄 🐿️ 🌼', name: '바이엘 하', emoji: '🍀', book: '바이엘 하', desc: '점음표, 쉼표, 손 넘기기', goal: 0.8, songs: [] },
-  { id: 's4', world: '체르니 숲', c1: '#d3f2cf', c2: '#3f9f5a', deco: '🌳 🦉 🍄 🌰 🦔 🌳', name: '체르니 100 (1)', emoji: '🌳', book: '체르니 100', desc: '빠른 음계와 반복음', goal: 0.7, songs: [] },
-  { id: 's5', world: '깊은 숲', c1: '#bfe3d2', c2: '#2d6a4f', deco: '🌲 🦌 🌙 🦊 🌲 ✨', name: '체르니 100 (2)', emoji: '🌲', book: '체르니 100', desc: '넓은 음역과 가벼운 손가락', goal: 0.7, songs: [] },
+  { id: 's3', world: '클로버 언덕', c1: '#d8f7e6', c2: '#4cc38a', deco: '🍀 🐇 🌷 🍄 🐿️ 🌼', name: '바이엘 하', emoji: '🍀', book: '바이엘 하 수준', desc: '슈만·디아벨리의 쉬운 노래로 표현 익히기', goal: 0.8, songs: [] },
+  { id: 's4', world: '체르니 숲', c1: '#d3f2cf', c2: '#3f9f5a', deco: '🌳 🦉 🍄 🌰 🦔 🌳', name: '체르니 100 (1)', emoji: '🌳', book: '체르니 100 수준', desc: '체르니 연습곡(Op.821)과 쉬운 소품', goal: 0.7, songs: [] },
+  { id: 's5', world: '깊은 숲', c1: '#bfe3d2', c2: '#2d6a4f', deco: '🌲 🦌 🌙 🦊 🌲 ✨', name: '체르니 100 (2)', emoji: '🌲', book: '체르니 100 수준', desc: '슈만 어린이 앨범과 체르니 연습곡', goal: 0.7, songs: [] },
   { id: 's6', world: '나비 정원', c1: '#ffe3f2', c2: '#b388eb', deco: '🦋 🌺 🌈 🌸 🦋 🌹', name: '부르크뮐러', emoji: '🦋', book: '부르크뮐러 25', desc: '느낌을 살려 치는 아름다운 소품', goal: 0.7, songs: [] },
   { id: 's7', world: '음악의 성', c1: '#e0ecff', c2: '#6a8dff', deco: '🏰 🎺 🎻 🥁 🎹 🎶', name: '소나티네', emoji: '🎼', book: '소나티네', desc: '쿨라우·클레멘티의 작은 소나타', goal: 0.7, songs: [] },
-  { id: 's8', world: '불꽃 화산', c1: '#ffe2c4', c2: '#ff6b4a', deco: '🌋 🔥 🐉 🪨 🔥 ☄️', name: '체르니 30 (1)', emoji: '🔥', book: '체르니 30', desc: '빠른 손가락, 긴 음계', goal: 0.6, songs: [] },
-  { id: 's9', world: '번개 산', c1: '#dfe5ff', c2: '#5b5bd6', deco: '⚡ ⛰️ 🦅 ☁️ ⚡ 🌩️', name: '체르니 30 (2)', emoji: '⚡', book: '체르니 30', desc: '더 빠르고 긴 곡', goal: 0.6, songs: [] },
-  { id: 's10', world: '왕의 궁전', c1: '#fff6cf', c2: '#f5b700', deco: '👑 💎 ✨ 🏆 🎖️ 🌟', name: '명곡', emoji: '👑', book: '명곡', desc: '누구나 아는 클래식 명곡', goal: 0.7, songs: [] }
+  { id: 's8', world: '불꽃 화산', c1: '#ffe2c4', c2: '#ff6b4a', deco: '🌋 🔥 🐉 🪨 🔥 ☄️', name: '체르니 30 (1)', emoji: '🔥', book: '체르니 30 수준', desc: '체르니 연습곡(Op.840), 바흐 인벤션, 슈만', goal: 0.6, songs: [] },
+  { id: 's9', world: '번개 산', c1: '#dfe5ff', c2: '#5b5bd6', deco: '⚡ ⛰️ 🦅 ☁️ ⚡ 🌩️', name: '체르니 30 (2)', emoji: '⚡', book: '체르니 30 수준', desc: '더 빠르고 긴 곡: 바흐 인벤션, 체르니', goal: 0.6, songs: [] },
+  { id: 's10', world: '왕의 궁전', c1: '#fff6cf', c2: '#f5b700', deco: '👑 💎 ✨ 🏆 🎖️ 🌟', name: '명곡', emoji: '👑', book: '명곡', desc: '엘리제를 위하여, 터키 행진곡, 녹턴 등 명곡', goal: 0.7, songs: [] }
 ];
 
 // course-data.js 에서 채우는 곡들 (단계 id → 곡 목록)
