@@ -3,7 +3,13 @@
 
 function nowSec() { return performance.now() / 1000; }
 
-var LATENCY = { touch: 0.02, mic: 0.12 };   // 소리가 난 뒤 앱이 알아채기까지 걸리는 시간
+// 마이크는 피아노 스피커 특성 때문에 한 옥타브 위/아래로 잡힐 때가 있어서, 같은 계이름이면 인정
+function sameNote(expected, played, source) {
+  if (expected === played) return true;
+  return source === 'mic' && Math.abs(expected - played) === 12;
+}
+
+var LATENCY = { touch: 0.02, mic: 0.14 };   // 소리가 난 뒤 앱이 알아채기까지 걸리는 시간
 
 // ───────────── 리듬 게임 ─────────────
 function Game(song, speed, opts) {
@@ -119,12 +125,13 @@ Game.prototype.handle = function (midi, source, time) {
   var best = -1, bestD = 1e9;
   for (var i = 0; i < this.notes.length; i++) {
     var n = this.notes[i];
-    if (n.state !== 'pending' || n.midi !== midi) continue;
+    if (n.state !== 'pending' || !sameNote(n.midi, midi, source)) continue;
     var d = Math.abs(n.time - t);
     if (d < bestD) { bestD = d; best = i; }
   }
   if (best < 0 || bestD > this.goodWindow) { this.flash(midi, '#ff4d4d'); return; }
   var perfect = bestD <= this.perfectWindow, note = this.notes[best];
+  midi = note.midi;
   note.state = perfect ? 'perfect' : 'good';
   note.hitAt = this.time();
   this.combo++;
@@ -185,6 +192,12 @@ Game.prototype.draw = function (canvas, letters) {
       ctx.fillStyle = '#fff';
       ctx.font = '800 ' + Math.min(f.w * 0.4, 20) + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
       ctx.fillText(Music.name(n.midi, letters), f.x + f.w / 2, bottom - 14);
+      var word = letters ? '' : Music.octaveWord(n.midi);
+      if (word && h > 44) {
+        ctx.font = '700 ' + Math.min(f.w * 0.24, 12) + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText(word, f.x + f.w / 2, bottom - 32);
+      }
     }
   }
 
@@ -217,10 +230,13 @@ Lesson.prototype.stars = function () {
 };
 
 // 맞으면 'right', 틀리면 'wrong', 무시하면 null
-Lesson.prototype.handle = function (midi) {
+Lesson.prototype.handle = function (midi, source) {
   if (this.demoIndex !== null || this.finished()) return null;
   var self = this;
-  var ok = midi === this.target();
+  var ok = sameNote(this.target(), midi, source);
+  // 마이크로 곡 범위 밖의 음이 잡히면 말소리나 잡음일 가능성이 높으니 틀린 것으로 치지 않음
+  if (!ok && source === 'mic' && (midi < this.song.range.low || midi > this.song.range.high)) return null;
+  if (ok) midi = this.target();
   if (ok) this.index++; else this.mistakes++;
   this.flashes[midi] = ok ? '#3fd16b' : '#ff4d4d';
   setTimeout(function () { delete self.flashes[midi]; }, 300);

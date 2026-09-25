@@ -10,6 +10,17 @@ var Music = (function () {
   var COLORS = ['#F24D4D', '#FF9433', '#F2C71A', '#4DC766', '#33B3E6', '#4D73F2', '#A666F2'];
 
   function name(midi, letters) { return (letters ? LETTERS : SOLFEGE)[midi % 12]; }
+  // 가운데 도(C4)가 있는 옥타브 = '가운데', 그 아래 '낮은', 위 '높은'
+  function octaveWord(midi) {
+    var o = Math.floor(midi / 12) - 1;
+    return o <= 2 ? '아주 낮은' : o === 3 ? '낮은' : o === 4 ? '' : o === 5 ? '높은' : '아주 높은';
+  }
+  // "높은 도", "솔", "낮은 라" (알파벳이면 "C5")
+  function fullName(midi, letters) {
+    if (letters) return name(midi, true) + (Math.floor(midi / 12) - 1);
+    var w = octaveWord(midi);
+    return (w ? w + ' ' : '') + name(midi);
+  }
   function isBlack(midi) { return [1, 3, 6, 8, 10].indexOf(midi % 12) >= 0; }
   function color(midi) { return COLORS[DEGREE[midi % 12]]; }
   function diatonicStep(midi) { return (Math.floor(midi / 12) - 1) * 7 + DEGREE[midi % 12]; }
@@ -101,7 +112,9 @@ var Music = (function () {
   ];
 
   // 표준 MIDI 파일에서 멜로디 한 줄 뽑기 (동시에 나는 음은 가장 높은 음만)
-  function parseMIDIFile(buffer) {
+  // options.easyKey: 검은 건반이 가장 적은 조로 옮기기 (기본 켬)
+  function parseMIDIFile(buffer, options) {
+    options = options || {};
     var b = new Uint8Array(buffer), pos = 0;
     function u32() { var v = (b[pos] << 24 | b[pos + 1] << 16 | b[pos + 2] << 8 | b[pos + 3]) >>> 0; pos += 4; return v; }
     function u16() { var v = b[pos] << 8 | b[pos + 1]; pos += 2; return v; }
@@ -112,7 +125,7 @@ var Music = (function () {
     if (division & 0x8000 || division === 0) return null;
     pos = 8 + hlen;
 
-    var tempo = 500000, tempoSet = false, numerator = 4, raw = [];
+    var tempos = [], sigs = [], raw = [];
     for (var track = 0; track < trackCount && pos + 8 <= b.length; track++) {
       var t = tag(), len = u32(), end = Math.min(pos + len, b.length);
       if (t !== 'MTrk') { pos = end; continue; }
@@ -128,8 +141,8 @@ var Music = (function () {
         if (b[pos] & 0x80) status = b[pos++];
         if (status === 0xFF) {
           var type = b[pos++], l = varLen();
-          if (type === 0x51 && l === 3 && !tempoSet) { tempo = b[pos] << 16 | b[pos + 1] << 8 | b[pos + 2]; tempoSet = true; }
-          else if (type === 0x58 && l >= 1) numerator = b[pos];
+          if (type === 0x51 && l === 3) tempos.push({ tick: tick, us: b[pos] << 16 | b[pos + 1] << 8 | b[pos + 2] });
+          else if (type === 0x58 && l >= 2) sigs.push({ tick: tick, num: b[pos], den: Math.pow(2, b[pos + 1]) });
           pos += l; status = 0;
         } else if (status === 0xF0 || status === 0xF7) {
           pos += varLen(); status = 0;
@@ -139,12 +152,13 @@ var Music = (function () {
           var d1 = b[pos], d2 = need > 1 ? b[pos + 1] : 0;
           pos += need;
           if (ch === 9) continue; // 드럼 채널
+          var key = ch * 128 + d1;
           if (kind === 0x90 && d2 > 0) {
-            if (open[d1] !== undefined) raw[open[d1]].end = tick;
-            raw.push({ track: track, midi: d1, start: tick, end: tick + division });
-            open[d1] = raw.length - 1;
+            if (open[key] !== undefined) raw[open[key]].end = tick;
+            raw.push({ track: track * 16 + ch, midi: d1, start: tick, end: tick + division });
+            open[key] = raw.length - 1;
           } else if (kind === 0x80 || (kind === 0x90 && d2 === 0)) {
-            if (open[d1] !== undefined) { raw[open[d1]].end = tick; delete open[d1]; }
+            if (open[key] !== undefined) { raw[open[key]].end = tick; delete open[key]; }
           }
         } else {
           pos++; // 알 수 없는 바이트 건너뛰기
@@ -154,13 +168,32 @@ var Music = (function () {
     }
     if (!raw.length) return null;
 
-    // 음표가 많고 음이 높은 트랙을 멜로디로
+    // 템포가 중간에 바뀌어도 정확하도록 틱을 초 단위로 바꾼다
+    tempos.sort(function (a, c) { return a.tick - c.tick; });
+    function seconds(tk) {
+      var sec = 0, last = 0, us = 500000;
+      for (var i = 0; i < tempos.length && tempos[i].tick <= tk; i++) {
+        sec += (tempos[i].tick - last) / division * us / 1e6;
+        last = tempos[i].tick; us = tempos[i].us;
+      }
+      return sec + (tk - last) / division * us / 1e6;
+    }
+    function tempoAt(tk) {
+      var us = 500000;
+      for (var i = 0; i < tempos.length && tempos[i].tick <= tk; i++) us = tempos[i].us;
+      return 60000000 / us;
+    }
+
+    // 멜로디 트랙 고르기: 한 번에 한 음씩 나오는(화음이 적은) 트랙, 음이 높은 트랙일수록 멜로디일 가능성이 높다
     var tracks = {};
     raw.forEach(function (n) { (tracks[n.track] = tracks[n.track] || []).push(n); });
     var best = null, bestScore = -1;
     Object.keys(tracks).forEach(function (k) {
-      var ns = tracks[k], avg = ns.reduce(function (s, n) { return s + n.midi; }, 0) / ns.length;
-      var sc = ns.length * (avg / 60);
+      var ns = tracks[k];
+      var starts = {}; ns.forEach(function (n) { starts[n.start] = true; });
+      var distinct = Object.keys(starts).length;
+      var avg = ns.reduce(function (s, n) { return s + n.midi; }, 0) / ns.length;
+      var sc = distinct * (distinct / ns.length) * Math.pow(avg / 60, 2);
       if (sc > bestScore) { bestScore = sc; best = ns; }
     });
 
@@ -172,20 +205,47 @@ var Music = (function () {
       if (melody[i].end > melody[i + 1].start) melody[i].end = melody[i + 1].start;
     }
 
+    // 조 옮기기: 검은 건반이 가장 적은 조를 고른다 (같으면 원래 조에 가까운 쪽)
+    var shift = 0;
+    if (options.easyKey !== false) {
+      var bestBlack = 1e9;
+      [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, 6].forEach(function (sh) {
+        var black = 0;
+        melody.forEach(function (n) { if (isBlack(n.midi + sh)) black++; });
+        if (black < bestBlack) { bestBlack = black; shift = sh; }
+      });
+    }
     // 아이들이 치기 쉽게 가운데 도 근처로 옥타브 이동
-    var sorted = melody.map(function (n) { return n.midi; }).sort(function (a, c) { return a - c; });
-    var shift = Math.round((67 - sorted[Math.floor(sorted.length / 2)]) / 12) * 12;
-    var barTicks = division * numerator;
-    var offset = Math.floor(melody[0].start / barTicks) * barTicks;
+    var sorted = melody.map(function (n) { return n.midi + shift; }).sort(function (a, c) { return a - c; });
+    shift += Math.round((67 - sorted[Math.floor(sorted.length / 2)]) / 12) * 12;
+
+    // 첫 음이 나올 때의 템포·박자를 기준으로, 실제 시간(초)을 박자로 바꾼다
+    var first = melody[0].start, bpm = tempoAt(first), sig = { num: 4, den: 4 };
+    sigs.forEach(function (sg) { if (sg.tick <= first) sig = sg; });
+    var t0 = seconds(first);
     var notes = melody.map(function (n) {
-      return { midi: n.midi + shift, beat: (n.start - offset) / division,
-               beats: Math.max((n.end - n.start) / division, 0.25) };
+      var s = seconds(n.start), e = seconds(n.end);
+      return { midi: n.midi + shift, beat: (s - t0) * bpm / 60, beats: Math.max((e - s) * bpm / 60, 0.25) };
     });
-    return { bpm: 60000000 / tempo, beatsPerBar: Math.max(2, Math.min(numerator, 6)), notes: notes };
+    // 음역이 너무 넓으면 (2옥타브 초과) 건반이 작아지니, 대부분의 음이 들어가는 2옥타브 안으로 접는다
+    var lows = [];
+    for (var L = 36; L <= 72; L += 12) lows.push(L);
+    var bestL = 60, bestIn = -1;
+    lows.forEach(function (L) {
+      var inside = notes.filter(function (n) { return n.midi >= L && n.midi <= L + 24; }).length;
+      if (inside > bestIn) { bestIn = inside; bestL = L; }
+    });
+    notes.forEach(function (n) {
+      while (n.midi < bestL) n.midi += 12;
+      while (n.midi > bestL + 24) n.midi -= 12;
+    });
+
+    var beatsPerBar = Math.round(sig.num * 4 / sig.den);
+    return { bpm: bpm, beatsPerBar: Math.max(2, Math.min(beatsPerBar, 6)), notes: notes, transpose: shift };
   }
 
   return {
-    name: name, isBlack: isBlack, color: color, diatonicStep: diatonicStep, particle: particle,
+    name: name, fullName: fullName, octaveWord: octaveWord, isBlack: isBlack, color: color, diatonicStep: diatonicStep, particle: particle,
     parseMelody: parseMelody, rangeFor: rangeFor, BUILTIN: BUILTIN, parseMIDIFile: parseMIDIFile
   };
 })();

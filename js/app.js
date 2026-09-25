@@ -14,6 +14,7 @@
   };
 
   var settings = Store.get('settings', null) || { mic: true, sens: 0.5, letters: false, drums: true, guide: true, speed: 0.8 };
+  if (settings.speech === undefined) settings.speech = true;   // 말소리 거르기
   function saveSettings() { Store.set('settings', settings); }
 
   var EMOJIS = ['🐰', '🐻', '🐶', '🐱', '🦊', '🐼', '🐯', '🦄', '🐸', '🐧', '🦖', '🐹'];
@@ -39,10 +40,11 @@
   }
 
   // ───────── 입력 모으기 (화면 건반 / 마이크) ─────────
-  var pressed = {}, lastNote = null, noteHandler = null;
+  var pressed = {}, lastNote = null, noteHandler = null, micLog = [];
   function noteOn(midi, source, time) {
     pressed[midi] = true;
     lastNote = midi;
+    if (source === 'mic') { micLog.push(midi); if (micLog.length > 10) micLog.shift(); }
     if (noteHandler) noteHandler(midi, source, time);
   }
   function noteOff(midi) { delete pressed[midi]; }
@@ -58,7 +60,7 @@
   function startMicIfNeeded() {
     $('micWarn').textContent = '';
     if (!settings.mic) { Sound.stopMic(); return; }
-    Sound.startMic(onMicNote, settings.sens).then(function (ok) {
+    Sound.startMic(onMicNote, settings.sens, settings.speech).then(function (ok) {
       if (!ok) {
         $('micWarn').textContent = location.protocol === 'https:'
           ? '마이크를 켤 수 없어요. 사파리 주소창 왼쪽 "AA" › 웹 사이트 설정에서 마이크를 허용해 주세요.'
@@ -79,6 +81,7 @@
     current = id;
     noteHandler = null;
     frameFn = null;
+    Sound.setExpected(null);
     hideOverlay();
     if (screens[id]) screens[id](arg);
   }
@@ -206,13 +209,13 @@
     $('learnTitle').textContent = song.emoji + ' ' + song.title;
     var cheers = ['잘했어요! 👏', '좋아요! ✨', '멋져요! 🌟', '정확해요! 🎯', '최고! 💯'];
 
-    noteHandler = function (midi) {
-      var r = lesson.handle(midi);
+    noteHandler = function (midi, source) {
+      var r = lesson.handle(midi, source);
       var L = settings.letters;
       if (r === 'right') { msg = lesson.finished() ? '다 쳤어요! 🎉' : cheers[lesson.index % cheers.length]; msgColor = '#2a9d4b'; }
       if (r === 'wrong') {
-        msg = '그건 ' + Music.particle(Music.name(midi, L), '이에요', '예요') + '. ' +
-              Music.particle(Music.name(lesson.target(), L), '을', '를') + ' 찾아봐요!';
+        msg = '그건 ' + Music.particle(Music.fullName(midi, L), '이에요', '예요') + '. ' +
+              Music.particle(Music.fullName(lesson.target(), L), '을', '를') + ' 찾아봐요!';
         msgColor = '#e03131';
       }
       if (lesson.finished() && !saved) {
@@ -245,6 +248,7 @@
 
       var hintMidi = demo ? lesson.notes[lesson.demoIndex].midi : lesson.target();
       kb.hints = {}; if (hintMidi !== null) kb.hints[hintMidi] = true;
+      Sound.setExpected(demo ? null : kb.hints);
       kb.flashes = lesson.flashes; kb.pressed = pressed; kb.letters = settings.letters;
       kb.draw();
 
@@ -258,10 +262,10 @@
       var win = lesson.notes.slice(start, start + 10).map(function (x) { return x.midi; });
       drawStaff($('staff'), win, focus - start, settings.letters);
       if (demo) {
-        $('guideMain').innerHTML = '<span style="color:#9b5cf6">👂 잘 들어보세요… ' + Music.name(hintMidi, settings.letters) + '</span>';
+        $('guideMain').innerHTML = '<span style="color:#9b5cf6">👂 잘 들어보세요… ' + Music.fullName(hintMidi, settings.letters) + '</span>';
         $('guideMsg').textContent = '';
       } else if (hintMidi !== null) {
-        var nm = Music.name(hintMidi, settings.letters);
+        var nm = Music.fullName(hintMidi, settings.letters);
         $('guideMain').innerHTML = '<span style="color:' + Music.color(hintMidi) + '">' + nm + '</span>' +
           Music.particle(nm, '을', '를').slice(nm.length) + ' 눌러요!';
         $('guideMsg').textContent = msg;
@@ -332,6 +336,7 @@
       $('combo').textContent = game.combo;
       game.draw($('fall'), settings.letters);
       kb.hints = game.hints; kb.flashes = game.flashes; kb.pressed = pressed; kb.letters = settings.letters;
+      Sound.setExpected(game.phase === 'playing' ? game.hints : null);
       kb.draw();
     };
   };
@@ -352,7 +357,7 @@
       history.push(midi);
       if (history.length > 12) history.shift();
       box.className = 'free-note big';
-      box.textContent = Music.name(midi, settings.letters);
+      box.textContent = Music.fullName(midi, settings.letters);
       box.style.color = Music.color(midi);
       dirty = true;
     };
@@ -370,6 +375,7 @@
   // 설정
   screens.settings = function () {
     $('setMic').checked = settings.mic;
+    $('setSpeech').checked = settings.speech;
     $('setSens').value = settings.sens;
     $('setDrums').checked = settings.drums;
     $('setGuide').checked = settings.guide;
@@ -398,13 +404,15 @@
     frameFn = function () {
       $('micMeter').style.width = Math.round(Sound.micLevel() * 100) + '%';
       var n = lastNote;
-      $('micNote').textContent = n === null ? '-' : Music.name(n, settings.letters);
+      $('micNote').textContent = n === null ? '-' : Music.fullName(n, settings.letters);
       $('micNote').style.color = n === null ? '' : Music.color(n);
+      $('micLog').textContent = micLog.length ? micLog.map(function (m) { return Music.fullName(m, settings.letters); }).join(', ') : '(아직 없음)';
     };
   };
 
   $('setMic').addEventListener('change', function () { settings.mic = this.checked; saveSettings(); startMicIfNeeded(); });
   $('setSens').addEventListener('input', function () { settings.sens = +this.value; saveSettings(); Sound.setSensitivity(settings.sens); });
+  $('setSpeech').addEventListener('change', function () { settings.speech = this.checked; saveSettings(); Sound.setSpeechFilter(settings.speech); });
   $('setDrums').addEventListener('change', function () { settings.drums = this.checked; saveSettings(); });
   $('setGuide').addEventListener('change', function () { settings.guide = this.checked; saveSettings(); });
   Array.prototype.forEach.call(document.querySelectorAll('[data-letters]'), function (b) {

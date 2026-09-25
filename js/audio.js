@@ -139,7 +139,7 @@ var Sound = (function () {
   }
 
   // 마이크 켜기. 성공하면 true를 돌려주는 Promise
-  function startMic(onNote, sensitivity) {
+  function startMic(onNote, sensitivity, speechFilter) {
     if (!ctx) unlock();
     if (mic.stream) { mic.detector.onNote = onNote; return Promise.resolve(true); }
     var md = navigator.mediaDevices;
@@ -148,11 +148,12 @@ var Sound = (function () {
       .then(function (stream) {
         mic.stream = stream;
         mic.source = ctx.createMediaStreamSource(stream);
-        mic.proc = ctx.createScriptProcessor(1024, 1, 1);
+        mic.proc = ctx.createScriptProcessor(2048, 1, 1);
         mic.sink = ctx.createGain();
         mic.sink.gain.value = 0;
         mic.detector = new PitchDetector(ctx.sampleRate);
         mic.detector.sensitivity = sensitivity;
+        mic.detector.speechFilter = speechFilter !== false;
         mic.detector.onNote = onNote;
         mic.proc.onaudioprocess = function (e) { mic.detector.process(e.inputBuffer.getChannelData(0)); };
         mic.source.connect(mic.proc);
@@ -175,11 +176,14 @@ var Sound = (function () {
   function micActive() { return !!mic.stream; }
   function micLevel() { return mic.detector && mic.stream ? mic.detector.level : 0; }
   function setSensitivity(v) { if (mic.detector) mic.detector.sensitivity = v; }
+  function setSpeechFilter(on) { if (mic.detector) mic.detector.speechFilter = on; }
+  // 지금 쳐야 할 음들을 알려주면 그 음은 조금 더 너그럽게 인식한다
+  function setExpected(notes) { if (mic.detector) mic.detector.expected = notes; }
 
   return {
     unlock: unlock, noteOn: noteOn, noteOff: noteOff, allOff: allOff, click: click, drum: drum,
     recentlyPlayed: recentlyPlayed, startMic: startMic, stopMic: stopMic, micActive: micActive,
-    micLevel: micLevel, setSensitivity: setSensitivity,
+    micLevel: micLevel, setSensitivity: setSensitivity, setSpeechFilter: setSpeechFilter, setExpected: setExpected,
     isUnlocked: function () { return !!ctx; }
   };
 })();

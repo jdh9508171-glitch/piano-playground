@@ -144,8 +144,23 @@ Keyboard.prototype.draw = function (force) {
     ctx.font = '800 ' + fs + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = self.pressed[m] || self.flashes[m] ? '#ffffff' : Music.color(m);
+    var lit = self.pressed[m] || self.flashes[m];
+    ctx.fillStyle = lit ? '#ffffff' : Music.color(m);
     ctx.fillText(Music.name(m, self.letters), f.x + f.w / 2, H - 14);
+    // 낮은/높은 표시 (알파벳이면 옥타브 숫자)
+    var small = self.letters ? String(Math.floor(m / 12) - 1) : Music.octaveWord(m);
+    if (small) {
+      ctx.font = '700 ' + Math.min(13, L.ww * 0.26) + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
+      ctx.fillStyle = lit ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.4)';
+      ctx.fillText(small, f.x + f.w / 2, H - 14 - fs - 2);
+    }
+    // 가운데 도 표시: 실제 피아노에서 같은 자리를 찾을 수 있게
+    if (m === 60) {
+      ctx.fillStyle = lit ? '#ffffff' : '#ff9533';
+      ctx.font = '800 ' + Math.min(13, L.ww * 0.26) + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
+      ctx.fillText('가운데', f.x + f.w / 2, H - 14 - fs - 2);
+      ctx.beginPath(); ctx.arc(f.x + f.w / 2, H - 14 - fs - 22, 5, 0, Math.PI * 2); ctx.fill();
+    }
   });
   L.black.forEach(function (m) {
     var f = L.frame(m);
@@ -165,7 +180,7 @@ function drawStaff(canvas, midis, current, letters) {
   var c = setupCanvas(canvas, 2), ctx = c.ctx, W = c.w, H = c.h;
   ctx.clearRect(0, 0, W, H);
   var gap = Math.min(14, H / 11);
-  var bottom = H / 2 + 2 * gap - 8;   // 미(E4) 줄
+  var bottom = H / 2 + 2 * gap - 12;   // 미(E4) 줄
   var left = 20;
 
   ctx.strokeStyle = 'rgba(0,0,0,0.65)';
@@ -215,6 +230,11 @@ function drawStaff(canvas, midis, current, letters) {
     }
     ctx.font = '800 ' + (isCur ? 20 : 15) + 'px -apple-system, "Apple SD Gothic Neo", sans-serif';
     ctx.fillStyle = isPast ? 'rgba(128,128,128,0.5)' : Music.color(m);
-    ctx.fillText(Music.name(m, letters), x, H - 14);
+    var word = letters ? '' : Music.octaveWord(m);
+    ctx.fillText(Music.name(m, letters), x, word ? H - 20 : H - 14);
+    if (word) {
+      ctx.font = '700 11px -apple-system, "Apple SD Gothic Neo", sans-serif';
+      ctx.fillText(word, x, H - 6);
+    }
   });
 }
