@@ -60,6 +60,20 @@
   var courseProg = Store.get('course', {});        // { 플레이어: { 곡id: {heard, learn, slow, normal} } }
   function progOf(songId, pid) { var p = courseProg[pid || currentPlayer] = courseProg[pid || currentPlayer] || {}; return p[songId] = p[songId] || {}; }
   function saveProg() { Store.set('course', courseProg); }
+  // 곡이 다른 월드로 옮겨져도 받은 별은 그대로 따라가게 (기록 키: 월드id-곡id)
+  (function moveProg() {
+    var where = {}, moved = false;
+    STAGES.forEach(function (st) { st.songs.forEach(function (s) { where[s.id.slice(s.id.indexOf('-') + 1)] = s.id; }); });
+    Object.keys(courseProg).forEach(function (pid) {
+      var p = courseProg[pid];
+      Object.keys(p).forEach(function (k) {
+        var to = where[k.slice(k.indexOf('-') + 1)];
+        if (to && to !== k && !p[to]) { p[to] = p[k]; delete p[k]; moved = true; }
+      });
+    });
+    if (moved) saveProg();
+  })();
+  function touched(i, pid) { return STAGES[i].songs.some(function (s) { return passed(s.id, pid); }); }
   function starsOfSong(songId, pid) {
     var g = ((courseProg[pid || currentPlayer] || {})[songId]) || {};
     return (g.learn ? 1 : 0) + ((g.slow || 0) >= 2 ? 1 : 0) + ((g.normal || 0) >= 2 ? 1 : 0);
@@ -68,10 +82,14 @@
   function worldStars(i, pid) { return STAGES[i].songs.reduce(function (t, s) { return t + starsOfSong(s.id, pid); }, 0); }
   function stageDone(i, pid) { var st = STAGES[i]; return st.songs.length >= 10 && st.songs.every(function (s) { return passed(s.id, pid); }); }
   function startStage(pid) { var pl = players.filter(function (x) { return x.id === (pid || currentPlayer); })[0]; return pl && pl.start ? pl.start : 0; }
-  function stageOpen(i) { return i <= startStage() || (i > 0 && stageDone(i - 1)); }
+  function stageOpen(i) { return i <= startStage() || (i > 0 && stageDone(i - 1)) || touched(i); }
   function songOpen(stageI, songI) {
     if (!stageOpen(stageI)) return false;
-    return songI === 0 || passed(STAGES[stageI].songs[songI - 1].id);
+    var songs = STAGES[stageI].songs;
+    if (songI === 0 || passed(songs[songI - 1].id)) return true;
+    // 곡 순서가 바뀌어도 이미 지나간 곳은 잠기지 않게
+    for (var k = songI; k < songs.length; k++) if (passed(songs[k].id)) return true;
+    return false;
   }
   // 게임·배우기가 끝났을 때 기록: 새 별마다 +5점, 월드 클리어 +50점
   function courseResult(ctx, kind, stars) {
