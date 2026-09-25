@@ -25,6 +25,7 @@ function Game(song, speed, opts) {
   this.endTime = (last.beat + last.beats) * this.beat + 1.0;
   this.onJudge = null;    // function(text, cssClass)
   this.onFinish = null;
+  this.onFail = null;     // 에너지가 다 떨어졌을 때
   this.reset();
 }
 
@@ -46,6 +47,7 @@ Game.prototype.reset = function () {
   this.hints = {}; this.flashes = {}; this.flashUntil = {};
   this.lastHit = {};
   this.lastHitNote = undefined; this.lastHitIndex = -1;
+  this.energy = 100;      // ❤️ 에너지: 놓치면 줄고, 맞히면 조금씩 참
   this.nextBeat = -this.countIn;
   this.phase = 'ready';
   this.frozen = -this.countIn * spb;
@@ -109,7 +111,16 @@ Game.prototype.tick = function () {
       n.state = 'miss';
       this.miss++;
       this.combo = 0;
+      this.energy = Math.max(0, this.energy - 10);
       if (this.onJudge) this.onJudge('앗!', 'miss');
+      if (this.energy <= 0) {
+        // 에너지가 다 떨어지면 실패 → 다시 도전
+        this.frozen = t;
+        this.phase = 'failed';
+        Sound.allOff();
+        if (this.onFail) this.onFail();
+        return;
+      }
     }
     if (preview) {
       if (n.time <= t && t < n.time + n.dur) hints[n.midi] = true;
@@ -157,6 +168,7 @@ Game.prototype.handle = function (midi, source, time) {
   this.combo++;
   this.maxCombo = Math.max(this.maxCombo, this.combo);
   if (perfect) this.perfect++; else this.good++;
+  this.energy = Math.min(100, this.energy + (perfect ? 6 : 4));
   this.score += (perfect ? 100 : 60) + Math.min(this.combo, 50) * 2;
   if (this.onJudge) {
     if (perfect) this.onJudge(this.combo >= 5 ? '완벽해요! ' + this.combo + '콤보' : '완벽해요!', 'perfect');

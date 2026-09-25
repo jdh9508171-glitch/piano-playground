@@ -119,6 +119,13 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .keys { display: block; width: 100%; height: 36%; flex-shrink: 0; touch-action: none; }
 
 /* 게임 */
+.energy { display: flex; align-items: center; }
+.energy span { font-size: 22px; margin-right: 6px; }
+.ebar { width: 180px; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.2); overflow: hidden; border: 2px solid rgba(255,255,255,0.5); }
+.ebar div { height: 100%; width: 100%; border-radius: 7px; background: linear-gradient(90deg, #ff4d6d, #ff9f43); -webkit-transition: width 0.25s; transition: width 0.25s; }
+.ebar div.low { background: #ff3b3b; -webkit-animation: blink 0.5s infinite; animation: blink 0.5s infinite; }
+@-webkit-keyframes blink { 50% { opacity: 0.4; } }
+@keyframes blink { 50% { opacity: 0.4; } }
 .score { color: #ffd23f; font-size: 26px; font-weight: 900; }
 .combo { color: #ff9f43; font-size: 22px; font-weight: 900; min-width: 110px; }
 .play-area { position: relative; flex: 1; }

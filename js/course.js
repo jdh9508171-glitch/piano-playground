@@ -21,7 +21,18 @@ var COURSE = [
       { builtin: 'jingle' }
     ]
   },
-  { id: 's2', world: '바이엘 초원', c1: '#eafbc9', c2: '#8ed36b', deco: '🐑 🌾 ☁️ 🌻 🐝 🌾', name: '바이엘 상', emoji: '🌿', book: '바이엘 상', desc: '한 옥타브(도~높은 도)와 8분음표', goal: 0.8, songs: [] },
+  { id: 's2', world: '바이엘 초원', c1: '#eafbc9', c2: '#8ed36b', deco: '🐑 🌾 ☁️ 🌻 🐝 🌾', name: '바이엘 상', emoji: '🌿', book: '바이엘 상', desc: '한 옥타브(도~높은 도)와 8분음표', goal: 0.8, songs: [
+      { id: 'beyer12', title: '바이엘 12번', bpm: 90, melody: 'C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 G4 F4 E4 D4 E4 C4 E4 D4 C4:4' },
+      { id: 'beyer14', title: '바이엘 14번', bpm: 90, melody: 'C4 D4 E4 F4 G4 F4 E4 D4 C4:4 G4:4 C4 D4 E4 F4 G4 F4 E4 D4 C4:4 G4:4 C4 D4 E4 F4 G4 F4 E4 D4 C4 G4 C4 G4 C4:4' },
+      { id: 'beyer15', title: '바이엘 15번', bpm: 90, melody: 'C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 E4:2 D4:2 C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 E4 D4 C4:2 D4 E4 F4 E4 D4:4 E4 F4 G4 F4 E4:3 D4 C4 D4 E4 F4 G4 F4 E4 D4 C4 D4 E4 F4 E4 D4 C4:2' },
+      { builtin: 'scale' },
+      { id: 'london', title: '런던 다리', bpm: 100, melody: 'G4:1.5 A4:0.5 G4 F4 E4 F4 G4:2 D4 E4 F4:2 E4 F4 G4:2 G4:1.5 A4:0.5 G4 F4 E4 F4 G4:2 D4:2 G4:2 E4 C4:3' },
+      { id: 'macdonald', title: '올드 맥도날드', bpm: 110, melody: 'C5 C5 C5 G4 A4 A4 G4:2 E5 E5 D5 D5 C5:3 G4 C5 C5 C5 G4 A4 A4 G4:2 E5 E5 D5 D5 C5:4' },
+      { id: 'jacques', title: '프레르 자크 (돌림노래)', bpm: 100, melody: 'C4 D4 E4 C4 C4 D4 E4 C4 E4 F4 G4:2 E4 F4 G4:2 G4:0.5 A4:0.5 G4:0.5 F4:0.5 E4 C4 G4:0.5 A4:0.5 G4:0.5 F4:0.5 E4 C4 C4 G3 C4:2 C4 G3 C4:2' },
+      { id: 'rowboat', title: '저어라 저어라 (Row Your Boat)', bpm: 100, beatsPerBar: 3, melody: 'C4:1.5 C4:1.5 C4 D4:0.5 E4:1.5 E4 D4:0.5 E4 F4:0.5 G4:3 C5:0.5 C5:0.5 C5:0.5 G4:0.5 G4:0.5 G4:0.5 E4:0.5 E4:0.5 E4:0.5 C4:0.5 C4:0.5 C4:0.5 G4 F4:0.5 E4 D4:0.5 C4:3' },
+      { id: 'yankee', title: '양키 두들', bpm: 110, melody: 'C4 C4 D4 E4 C4 E4 D4 G3 C4 C4 D4 E4 C4:2 B3:2 C4 C4 D4 E4 F4 E4 D4 C4 B3 G3 A3 B3 C4:2 C4:2' },
+      { builtin: 'joy' }
+    ] },
   { id: 's3', world: '클로버 언덕', c1: '#d8f7e6', c2: '#4cc38a', deco: '🍀 🐇 🌷 🍄 🐿️ 🌼', name: '바이엘 하', emoji: '🍀', book: '바이엘 하', desc: '점음표, 쉼표, 손 넘기기', goal: 0.8, songs: [] },
   { id: 's4', world: '체르니 숲', c1: '#d3f2cf', c2: '#3f9f5a', deco: '🌳 🦉 🍄 🌰 🦔 🌳', name: '체르니 100 (1)', emoji: '🌳', book: '체르니 100', desc: '빠른 음계와 반복음', goal: 0.7, songs: [] },
   { id: 's5', world: '깊은 숲', c1: '#bfe3d2', c2: '#2d6a4f', deco: '🌲 🦌 🌙 🦊 🌲 ✨', name: '체르니 100 (2)', emoji: '🌲', book: '체르니 100', desc: '넓은 음역과 가벼운 손가락', goal: 0.7, songs: [] },

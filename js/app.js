@@ -497,14 +497,26 @@
       var n = game.stars(), rec = record('game', song.id, n);
       addPoints(5 + n * 5);
       courseResult(course, arg.kind, n);
+      var missionFail = course && n < 2;
       showResult(song.title, n,
         ['점수 ' + game.score + '점 · 최고 콤보 ' + game.maxCombo,
-         '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss].concat(courseLines(course)), rec,
-        [{ label: '🔄 다시', color: 'orange', fn: function () { hideOverlay(); game.reset(); } },
+         '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss]
+          .concat(missionFail ? ['<b style="color:#e03131">아깝다! 별 2개 이상이면 미션 성공이에요. 다시 도전! 💪</b>'] : [])
+          .concat(courseLines(course)), rec,
+        [{ label: missionFail ? '🔄 다시 도전' : '🔄 다시', color: 'orange', fn: function () { hideOverlay(); missionFail ? game.start(false) : game.reset(); } },
          course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
                 : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
     };
     noteHandler = function (midi, source, time) { game.handle(midi, source, time); };
+    // 에너지가 다 떨어지면: 실패 → 다시 도전
+    game.onFail = function () {
+      addPoints(2);
+      showOverlay('<h1>💥 에너지가 다 떨어졌어요!</h1><div class="sub">' + esc(song.title) + '</div>' +
+        '<div class="line">괜찮아요, 다시 해 봐요! 💪</div><div class="line">맞힌 음 ' + (game.perfect + game.good) + '개 · 최고 콤보 ' + game.maxCombo + '</div>', false,
+        [{ label: '🔄 다시 도전', color: 'orange', fn: function () { hideOverlay(); game.start(false); } },
+         course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
+                : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
+    };
 
     $('btnPreview').onclick = function () { game.start(true); };
     $('btnPlay').onclick = function () { game.start(false); };
@@ -532,11 +544,15 @@
         var inGame = game.phase === 'playing' || game.phase === 'paused' || game.phase === 'finished';
         $('ready').classList.toggle('hidden', game.phase !== 'ready');
         $('scoreBox').classList.toggle('hidden', !inGame);
+        $('energyBox').classList.toggle('hidden', !(game.phase === 'playing' || game.phase === 'paused'));
         $('comboBox').classList.toggle('hidden', !inGame);
         $('pauseBtn').classList.toggle('hidden', !(game.phase === 'playing' || game.phase === 'preview'));
         if (game.phase === 'ready') $('readyStars').textContent = starsText(starOf('game', song.id));
       }
       $('score').textContent = game.score;
+      var ef = $('energyFill');
+      ef.style.width = game.energy + '%';
+      ef.className = game.energy <= 25 ? 'low' : '';
       $('combo').textContent = game.combo;
       game.draw($('fall'), settings.letters);
       kb.hints = game.hints; kb.flashes = game.flashes; kb.pressed = pressed; kb.letters = settings.letters;
