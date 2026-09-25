@@ -30,6 +30,54 @@
     stars[k] = n; Store.set('stars', stars); return true;
   }
 
+  // ───────── 점수 (기록만, 보상 없음) ─────────
+  var points = Store.get('points', {});          // { 플레이어: { 'YYYY-MM-DD': 점수 } }
+  function dayKey(d) { d = d || new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function addPoints(n) {
+    if (!n) return;
+    var p = points[currentPlayer] = points[currentPlayer] || {}, k = dayKey();
+    p[k] = (p[k] || 0) + n;
+    Store.set('points', points);
+  }
+  function pointsOn(pid, d) { return ((points[pid] || {})[dayKey(d)]) || 0; }
+  function pointsSince(pid, days) {
+    var t = 0, d = new Date();
+    for (var i = 0; i < days; i++) { t += pointsOn(pid, d); d.setDate(d.getDate() - 1); }
+    return t;
+  }
+  function pointsTotal(pid) { var t = 0, p = points[pid] || {}; Object.keys(p).forEach(function (k) { t += p[k]; }); return t; }
+  function streak(pid) {   // 오늘(또는 어제)부터 거꾸로 연속으로 연습한 날 수
+    var d = new Date(), n = 0;
+    if (!pointsOn(pid, d)) d.setDate(d.getDate() - 1);
+    while (pointsOn(pid, d) > 0) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
+
+  // ───────── 단계 깨기 진행 ─────────
+  var STAGES = courseStages();
+  var courseProg = Store.get('course', {});        // { 플레이어: { 곡id: {heard, learn, slow, normal} } }
+  function progOf(songId, pid) { var p = courseProg[pid || currentPlayer] = courseProg[pid || currentPlayer] || {}; return p[songId] = p[songId] || {}; }
+  function saveProg() { Store.set('course', courseProg); }
+  function passed(songId, pid) { var g = ((courseProg[pid || currentPlayer] || {})[songId]) || {}; return !!(g.learn && g.slow >= 2 && g.normal >= 2); }
+  function stageDone(i, pid) { var st = STAGES[i]; return st.songs.length > 0 && st.songs.every(function (s) { return passed(s.id, pid); }); }
+  function startStage(pid) { var pl = players.filter(function (x) { return x.id === (pid || currentPlayer); })[0]; return pl && pl.start ? pl.start : 0; }
+  function stageOpen(i) { return i <= startStage() || (i > 0 && stageDone(i - 1)); }
+  function songOpen(stageI, songI) {
+    if (!stageOpen(stageI)) return false;
+    return songI === 0 || passed(STAGES[stageI].songs[songI - 1].id);
+  }
+  // 게임·배우기가 끝났을 때 단계 진행 기록 (처음 통과하면 점수)
+  function courseResult(ctx, kind, stars) {
+    if (!ctx) return;
+    var g = progOf(ctx.song.id), was = passed(ctx.song.id), stageWas = stageDone(ctx.stage);
+    if (kind === 'learn') g.learn = true;
+    if (kind === 'slow') g.slow = Math.max(g.slow || 0, stars);
+    if (kind === 'normal') g.normal = Math.max(g.normal || 0, stars);
+    saveProg();
+    if (!was && passed(ctx.song.id)) addPoints(20);
+    if (!stageWas && stageDone(ctx.stage)) addPoints(50);
+  }
+
   // 곡마다 빠르기를 따로 기억 (가족 곡은 기본 0.6배가 원곡 느낌)
   var speeds = Store.get('speeds', {});
   function speedOf(song) { return speeds[song.id] || (song.id.indexOf('family-') === 0 ? 0.6 : 0.8); }
@@ -214,6 +262,10 @@
   var screens = {};
 
   screens.home = function () {
+    var pid = currentPlayer, st = streak(pid);
+    $('todayLine').innerHTML = '⭐ 오늘 ' + pointsOn(pid) + '점' + (st > 1 ? ' · 🔥 ' + st + '일 연속' : '') +
+      ' <button id="recordBtn">📅 기록</button>';
+    $('recordBtn').onclick = showRecords;
     var box = $('players');
     box.innerHTML = '';
     players.forEach(function (p) {
@@ -224,6 +276,26 @@
     });
     updateStatus();
   };
+
+  // 기록 보기: 최근 7일, 이번 주, 전체
+  function showRecords() {
+    var html = '<h1>📅 ' + esc(player().name) + '의 기록</h1><div class="rec-days">';
+    var names = ['일', '월', '화', '수', '목', '금', '토'], d = new Date();
+    d.setDate(d.getDate() - 6);
+    for (var i = 0; i < 7; i++) {
+      var n = pointsOn(currentPlayer, d);
+      html += '<div class="rday' + (n ? ' on' : '') + '"><small>' + names[d.getDay()] + '</small><b>' + (n ? '⭐' : '·') + '</b><small>' + (n || '') + '</small></div>';
+      d.setDate(d.getDate() + 1);
+    }
+    html += '</div><div class="line">최근 7일 ' + pointsSince(currentPlayer, 7) + '점 · 전체 ' + pointsTotal(currentPlayer) + '점</div>';
+    var cleared = 0, now = 0;
+    STAGES.forEach(function (st, i) { if (stageDone(i)) cleared++; if (stageOpen(i)) now = i; });
+    html += '<div class="line">🗺️ 지금 ' + (now + 1) + '단계 ' + STAGES[now].emoji + ' ' + STAGES[now].name + '</div>';
+    players.forEach(function (p) {
+      if (p.id !== currentPlayer) html += '<div class="line sub">' + p.emoji + ' ' + esc(p.name) + ': 오늘 ' + pointsOn(p.id) + '점 · 전체 ' + pointsTotal(p.id) + '점</div>';
+    });
+    showOverlay(html, false, [{ label: '닫기', color: 'blue', fn: hideOverlay }]);
+  }
 
   function updateStatus() {
     $('status').textContent = (Sound.micActive() ? '🎤 마이크로 피아노 소리를 듣고 있어요'
@@ -301,7 +373,8 @@
   });
 
   // 배우기
-  screens.learn = function (song) {
+  screens.learn = function (arg) {
+    var song = arg && arg.song ? arg.song : arg, course = arg && arg.course ? arg.course : null;
     var lesson = new Lesson(song), kb = keyboards.learnKeys || makeKeyboard('learnKeys');
     var msg = '', msgColor = '#000', saved = false, newRec = false;
     kb.low = song.range.low; kb.high = song.range.high; kb.letters = settings.letters;
@@ -320,6 +393,8 @@
       if (lesson.finished() && !saved) {
         saved = true;
         newRec = record('learn', song.id, lesson.stars());
+        addPoints(10 + lesson.stars() * 2);
+        courseResult(course, 'learn', lesson.stars());
         setTimeout(finish, 500);
       }
     };
@@ -327,7 +402,8 @@
       showResult(song.title, lesson.stars(),
         [lesson.mistakes === 0 ? '하나도 안 틀렸어요! 🌈' : '틀린 횟수 ' + lesson.mistakes + '번'], newRec,
         [{ label: '🔄 한 번 더', color: 'orange', fn: function () { hideOverlay(); lesson.restart(); saved = false; msg = ''; } },
-         { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
+         course ? { label: '🗺️ 단계로', color: 'green', fn: function () { go('stage'); } }
+                : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
     }
 
     $('btnTarget').onclick = function () { var t = lesson.target(); if (t !== null) Sound.noteOn(t, 0.8, 0.8); };
@@ -335,7 +411,7 @@
     $('btnAll').onclick = function () { lesson.playDemo(false); };
     $('btnStop').onclick = function () { lesson.stopDemo(); };
     $('btnRestart').onclick = function () { lesson.restart(); msg = ''; saved = false; };
-    $('learnBack').onclick = function () { go('songs'); };
+    $('learnBack').onclick = function () { go(course ? 'stage' : 'songs'); };
     lesson.speed = speedOf(song);
     $('learnSpeed').value = lesson.speed;
     $('learnSpeedLabel').textContent = speedText(lesson.speed);
@@ -384,11 +460,14 @@
   };
 
   // 리듬 게임
-  screens.game = function (song) {
+  screens.game = function (arg) {
+    var song = arg && arg.song ? arg.song : arg, course = arg && arg.course ? arg.course : null;
     var guide = settings.guide && !Sound.micActive();
-    var game = new Game(song, speedOf(song), { guide: guide, drums: settings.drums });
-    $('gameSpeed').value = speedOf(song);
-    $('gameSpeedLabel').textContent = speedText(speedOf(song));
+    var sp = course ? arg.speed : speedOf(song);
+    var game = new Game(song, sp, { guide: guide, drums: settings.drums });
+    $('gameSpeed').value = sp;
+    $('gameSpeed').disabled = !!course;       // 단계 깨기에서는 빠르기가 정해져 있음
+    $('gameSpeedLabel').textContent = speedText(sp) + (course ? (arg.kind === 'slow' ? ' 🐢' : ' 🐇') : '');
     $('gameSpeed').oninput = function () {
       var v = +this.value;
       setSpeedOf(song, v);
@@ -408,23 +487,26 @@
     };
     game.onFinish = function () {
       var n = game.stars(), rec = record('game', song.id, n);
+      addPoints(5 + n * 5);
+      courseResult(course, arg.kind, n);
       showResult(song.title, n,
         ['점수 ' + game.score + '점 · 최고 콤보 ' + game.maxCombo,
          '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss], rec,
         [{ label: '🔄 다시', color: 'orange', fn: function () { hideOverlay(); game.reset(); } },
-         { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
+         course ? { label: '🗺️ 단계로', color: 'green', fn: function () { go('stage'); } }
+                : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
     };
     noteHandler = function (midi, source, time) { game.handle(midi, source, time); };
 
     $('btnPreview').onclick = function () { game.start(true); };
     $('btnPlay').onclick = function () { game.start(false); };
-    $('gameBack').onclick = function () { go('songs'); };
+    $('gameBack').onclick = function () { go(course ? 'stage' : 'songs'); };
     $('pauseBtn').onclick = function () {
       game.pause();
       showOverlay('<h1>잠깐 쉬어요 ☕️</h1>', true, [
         { label: '▶️ 계속하기', color: 'green', fn: function () { hideOverlay(); game.resume(); } },
         { label: '🔄 처음부터', color: 'orange', fn: function () { hideOverlay(); game.reset(); } },
-        { label: '📋 나가기', color: 'gray', fn: function () { go('songs'); } }
+        { label: '📋 나가기', color: 'gray', fn: function () { go(course ? 'stage' : 'songs'); } }
       ]);
     };
     leaveFn = function () { game.phase = 'ready'; Sound.allOff(); };
@@ -455,6 +537,68 @@
     };
   };
 
+
+  // ───────── 단계 깨기 ─────────
+  screens.course = function () {
+    $('courseWho').textContent = player().emoji + ' ' + player().name;
+    var map = $('courseMap');
+    map.innerHTML = '';
+    var nowI = -1;
+    STAGES.forEach(function (st, i) { if (stageOpen(i) && !stageDone(i) && nowI < 0) nowI = i; });
+    STAGES.forEach(function (st, i) {
+      var open = stageOpen(i), done = stageDone(i);
+      var cnt = st.songs.filter(function (s) { return passed(s.id); }).length;
+      var t = el('button', 'stage-tile' + (open ? '' : ' locked') + (done ? ' done' : '') + (i === nowI ? ' now' : ''),
+        '<span class="se">' + (open ? st.emoji : '🔒') + '</span><b>' + (i + 1) + '단계 · ' + st.name + '</b><small>' + st.desc + '</small>' +
+        '<span class="cnt">' + (st.songs.length ? cnt + '/' + st.songs.length : '준비 중') + '</span>' +
+        '<div class="bar"><div style="width:' + (st.songs.length ? 100 * cnt / st.songs.length : 0) + '%"></div></div>');
+      t.addEventListener('click', function () {
+        if (!open) { alert('앞 단계를 모두 깨면 열려요! 🔒'); return; }
+        if (!st.songs.length) { alert('이 단계 곡은 곧 들어와요 🎵'); return; }
+        go('stage', i);
+      });
+      map.appendChild(t);
+    });
+  };
+
+  var stageIndex = 0, demoGen = 0;
+  screens.stage = function (i) {
+    if (i !== undefined) stageIndex = i;
+    var st = STAGES[stageIndex];
+    $('stageTitle').textContent = st.emoji + ' ' + (stageIndex + 1) + '단계 · ' + st.name;
+    $('stageDesc').textContent = st.desc + ' · 곡마다 🎧 듣기 → 📖 따라 치기 → 🐢 느린 게임 → 🐇 보통 게임(별 2개 이상)이면 통과!';
+    $('stageCount').textContent = st.songs.filter(function (s) { return passed(s.id); }).length + ' / ' + st.songs.length;
+    var box = $('stageSongs');
+    box.innerHTML = '';
+    st.songs.forEach(function (song, k) {
+      var open = songOpen(stageIndex, k), g = progOf(song.id), ok = passed(song.id);
+      var row = el('div', 'song-row' + (open ? '' : ' locked') + (ok ? ' passed' : ''),
+        '<div class="num">' + (ok ? '✓' : k + 1) + '</div><div class="ttl">' + esc(song.title) + '<small>' + song.notes.length + '음</small></div>');
+      var steps = el('div', 'steps2');
+      function btn(label, done, fn) {
+        var b = el('button', done ? 'ok' : '', label);
+        b.disabled = !open;
+        b.addEventListener('click', fn);
+        steps.appendChild(b);
+      }
+      var ctx = { song: song, stage: stageIndex };
+      btn('🎧 듣기' + (g.heard ? ' ✓' : ''), g.heard, function () { playSongDemo(song); g.heard = true; saveProg(); screens.stage(); });
+      btn('📖 따라 치기' + (g.learn ? ' ✓' : ''), g.learn, function () { go('learn', { song: song, course: ctx }); });
+      btn('🐢 ' + starsText(g.slow || 0), (g.slow || 0) >= 2, function () { go('game', { song: song, course: ctx, speed: Math.round(st.goal * 0.6 * 20) / 20, kind: 'slow' }); });
+      btn('🐇 ' + starsText(g.normal || 0), (g.normal || 0) >= 2, function () { go('game', { song: song, course: ctx, speed: st.goal, kind: 'normal' }); });
+      row.appendChild(steps);
+      box.appendChild(row);
+    });
+    leaveFn = function () { demoGen++; Sound.allOff(); };
+  };
+
+  function playSongDemo(song) {
+    demoGen++; Sound.allOff();
+    var gen = demoGen, spb = 60 / song.bpm, first = song.notes[0].beat;
+    song.notes.forEach(function (n) {
+      setTimeout(function () { if (gen === demoGen) Sound.noteOn(n.midi, 0.8, n.beats * spb * 0.9); }, ((n.beat - first) * spb + 0.2) * 1000);
+    });
+  }
 
   // ───────── 배우기 메뉴 ─────────
   var quizLevel = Store.get('quizLevel', 0);
@@ -512,6 +656,7 @@
       if (!quiz.finished() || done) return;
       done = true;
       var n = quiz.stars(), rec = record('quiz', type + (type === 'guess' ? '' : quizLevel), n);
+      addPoints(3 + n * 3);
       var secs = Math.round(nowSec() - quiz.started);
       var lines = type === 'memory' ? ['한 번에 기억한 음 ' + quiz.score() + '개']
         : type === 'speed' ? ['30초 동안 ' + quiz.score() + '개 찾았어요!']
@@ -830,7 +975,13 @@
       input.value = p.name;
       input.maxLength = 8;
       input.addEventListener('input', function () { p.name = input.value || p.id; Store.set('players', players); });
-      row.appendChild(emo); row.appendChild(input);
+      var sel = el('select', 'start-sel');
+      STAGES.forEach(function (st, i) {
+        var o = el('option', '', (i + 1) + '단계 ' + st.emoji + ' ' + st.name + '부터');
+        o.value = i; if ((p.start || 0) === i) o.selected = true; sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () { p.start = +sel.value; Store.set('players', players); });
+      row.appendChild(emo); row.appendChild(input); row.appendChild(sel);
       pe.appendChild(row);
     });
     pe.appendChild(el('p', 'hint', '동물을 누르면 바뀌어요.'));

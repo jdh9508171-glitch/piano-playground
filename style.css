@@ -75,12 +75,12 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .player small { display: block; font-size: 16px; font-weight: 700; text-align: left; }
 .modes { display: flex; justify-content: center; }
 .mode {
-  width: 225px; height: 240px; margin: 0 9px; border-radius: 36px; color: #fff;
+  width: 185px; height: 225px; margin: 0 7px; border-radius: 36px; color: #fff;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   box-shadow: 0 10px 22px rgba(0,0,0,0.15);
 }
-.mode .emoji { font-size: 66px; }
-.mode b { font-size: 30px; margin-top: 8px; }
+.mode .emoji { font-size: 56px; }
+.mode b { font-size: 26px; margin-top: 8px; }
 .mode small { font-size: 18px; font-weight: 700; opacity: 0.9; margin-top: 6px; }
 .bottom-row { margin: auto auto 20px; display: flex; align-items: center; }
 .bottom-row .pill { margin-right: 12px; }
@@ -136,6 +136,45 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .ready-emoji { font-size: 76px; }
 .ready-title { font-size: 40px; font-weight: 900; color: #fff; margin: 4px 0 8px; }
 .ready .stars { margin-bottom: 16px; color: #ffd23f; }
+
+/* 오늘 점수 */
+.today { text-align: center; font-size: 20px; font-weight: 900; margin: -10px 0 16px; color: #5a3b00; }
+.today button { margin-left: 10px; font-size: 16px; font-weight: 800; padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,0.7); }
+.mode.green { background: #34b36b; }
+
+/* 단계 깨기 */
+.course-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 30px; }
+.course-map { text-align: center; }
+.stage-tile { display: inline-block; vertical-align: top; width: 300px; margin: 8px; padding: 16px; border-radius: 26px; background: #fff; text-align: left; box-shadow: 0 5px 14px rgba(0,0,0,0.08); position: relative; }
+.stage-tile .se { font-size: 42px; float: left; margin-right: 12px; }
+.stage-tile b { display: block; font-size: 22px; }
+.stage-tile small { display: block; font-size: 14px; color: #777; font-weight: 700; margin-top: 2px; }
+.stage-tile .bar { clear: both; height: 12px; border-radius: 6px; background: #eee; margin-top: 12px; overflow: hidden; }
+.stage-tile .bar div { height: 100%; background: linear-gradient(90deg, #34b36b, #9be15d); }
+.stage-tile .cnt { position: absolute; top: 14px; right: 16px; font-size: 16px; font-weight: 900; color: #34b36b; }
+.stage-tile.locked { opacity: 0.45; }
+.stage-tile.now { border: 4px solid #ff9533; }
+.stage-tile.done { background: #eafbea; }
+.stage-desc { margin: -6px 24px 12px; font-size: 17px; font-weight: 700; color: #666; flex-shrink: 0; }
+.stage-count { font-size: 20px; color: #34b36b; }
+.song-row { display: flex; align-items: center; background: #fff; border-radius: 20px; padding: 12px 16px; margin: 0 auto 10px; max-width: 900px; box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
+.song-row.locked { opacity: 0.4; }
+.song-row.passed { background: #eafbea; }
+.song-row .num { width: 44px; height: 44px; border-radius: 22px; background: #ffe7c2; font-size: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; }
+.song-row.passed .num { background: #34b36b; color: #fff; }
+.song-row .ttl { flex: 1; font-size: 20px; font-weight: 900; }
+.song-row .ttl small { display: block; font-size: 13px; font-weight: 700; color: #888; }
+.song-row .steps2 button { margin-left: 6px; padding: 10px 12px; border-radius: 14px; font-size: 16px; font-weight: 800; background: rgba(0,0,0,0.05); }
+.song-row .steps2 button.ok { background: #c9f5d6; }
+.song-row .steps2 button:disabled { opacity: 0.35; }
+
+.rec-days { display: flex; justify-content: center; margin: 12px 0; }
+.rday { width: 64px; margin: 0 4px; padding: 8px 0; border-radius: 14px; background: #f3f3f3; }
+.rday.on { background: #fff3c4; }
+.rday b { display: block; font-size: 26px; } .rday small { display: block; font-size: 13px; font-weight: 800; color: #777; }
+.line.sub { font-size: 17px; color: #777; }
+.start-sel { font-size: 17px; font-weight: 800; padding: 10px; border-radius: 12px; border: 2px solid #eee; background: #fff; font-family: inherit; }
+.speed-row input:disabled { opacity: 0.4; }
 
 /* 카테고리 탭 */
 .cat-tabs { flex-shrink: 0; white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 12px; }

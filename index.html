@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
     <div id="startBox" class="hidden">
       <button class="pill big pink" id="startBtn">🎹 시작하기</button>
       <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
-    <p class="hint version">버전 19</p>
+    <p class="hint version">버전 20</p>
     </div>
   </div>
 </section>
@@ -38,7 +38,9 @@
   </div>
   <h1 class="home-title">🎹 피아노 놀이터</h1>
   <div id="players" class="players"></div>
+  <div class="today" id="todayLine"></div>
   <div class="modes">
+    <button class="mode green" data-go="course"><span class="emoji">🗺️</span><b>단계 깨기</b><small>한 단계씩 올라가요</small></button>
     <button class="mode orange" data-go="learnMenu"><span class="emoji">📖</span><b>배우기</b><small>곡·계이름·건반 찾기</small></button>
     <button class="mode pink" data-mode="game"><span class="emoji">🎮</span><b>리듬 게임</b><small>떨어지는 음표를 쳐요</small></button>
     <button class="mode blue" data-go="free"><span class="emoji">🎵</span><b>자유 연주</b><small>마음대로 쳐 봐요</small></button>
@@ -109,6 +111,29 @@
     </div>
   </div>
   <canvas id="gameKeys" class="keys"></canvas>
+</section>
+
+<!-- 단계 깨기: 10단계 지도 -->
+<section id="course" class="screen cream">
+  <div class="topbar">
+    <button class="round dark" data-go="home">‹</button>
+    <h2>🗺️ 단계 깨기</h2>
+    <div class="spacer"></div>
+    <div class="who" id="courseWho"></div>
+  </div>
+  <div class="course-body"><div class="course-map" id="courseMap"></div></div>
+</section>
+
+<!-- 단계 안: 곡 목록 -->
+<section id="stage" class="screen cream">
+  <div class="topbar">
+    <button class="round dark" data-go="course">‹</button>
+    <h2 id="stageTitle"></h2>
+    <div class="spacer"></div>
+    <b id="stageCount" class="stage-count"></b>
+  </div>
+  <p class="stage-desc" id="stageDesc"></p>
+  <div class="course-body"><div id="stageSongs"></div></div>
 </section>
 
 <!-- 배우기 메뉴 -->
@@ -257,8 +282,9 @@
     </div>
     <div class="card">
       <h3>👧👦 플레이어</h3>
-      <p class="hint">앱 버전 19</p>
+      <p class="hint">앱 버전 20</p>
       <div id="playerEdit"></div>
+      <p class="hint">시작 단계: 아이가 학원에서 배우는 단계를 고르면 그 단계까지 바로 열려요.</p>
     </div>
   </div>
 </section>
@@ -266,11 +292,13 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=19"></script>
-<script src="js/pitch.js?v=19"></script>
-<script src="js/audio.js?v=19"></script>
-<script src="js/draw.js?v=19"></script>
-<script src="js/game.js?v=19"></script>
-<script src="js/app.js?v=19"></script>
+<script src="js/music.js?v=20"></script>
+<script src="js/pitch.js?v=20"></script>
+<script src="js/audio.js?v=20"></script>
+<script src="js/draw.js?v=20"></script>
+<script src="js/game.js?v=20"></script>
+<script src="js/course-data.js?v=20"></script>
+<script src="js/course.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
 </body>
 </html>
