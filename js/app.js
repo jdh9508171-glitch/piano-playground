@@ -31,12 +31,42 @@
   }
 
   var imported = Store.get('imported', []);
+  function toSong(s, isImported) {
+    var notes = s.notes.map(function (a) { return { midi: a[0], beat: a[1], beats: a[2] }; });
+    return { id: s.id, title: s.title, emoji: s.emoji, level: s.level || 2, bpm: s.bpm, beatsPerBar: s.beatsPerBar,
+             notes: notes, range: Music.rangeFor(notes), imported: isImported };
+  }
   function allSongs() {
-    return Music.BUILTIN.concat(imported.map(function (s) {
-      var notes = s.notes.map(function (a) { return { midi: a[0], beat: a[1], beats: a[2] }; });
-      return { id: s.id, title: s.title, emoji: s.emoji, level: 2, bpm: s.bpm, beatsPerBar: s.beatsPerBar,
-               notes: notes, range: Music.rangeFor(notes), imported: true };
-    }));
+    return Music.BUILTIN
+      .concat(familySongs.map(function (s) { return toSong(s, false); }))
+      .concat(imported.map(function (s) { return toSong(s, true); }));
+  }
+
+  // ───────── 가족 곡 모음: 비공개 링크에서 자동으로 불러온다 ─────────
+  // 특별 링크(?pack=사용자/번호)로 한 번 열면 이 기기에 기억해 두고, 이후엔 앱을 열 때마다 최신 곡을 받아온다.
+  var familySongs = [];
+  (function () {
+    var m = /[?&]pack=([\w-]+\/[0-9a-f]+)/.exec(location.search);
+    if (m) {
+      Store.set('pack', m[1]);
+      if (history.replaceState) history.replaceState(null, '', location.pathname);   // 주소창에서 링크 숨김
+    }
+  })();
+  function loadFamilySongs() {
+    var pack = Store.get('pack', null);
+    if (!pack) return;
+    var cached = Store.get('packCache', null);
+    if (cached && cached.songs) familySongs = cached.songs;
+    fetch('https://gist.githubusercontent.com/' + pack + '/raw/family-songs.json?t=' + Date.now())
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        if (!d || !d.songs) return;
+        familySongs = d.songs;
+        Store.set('packCache', d);
+        if (current === 'songs') screens.songs();
+        if (current === 'home') updateStatus();
+      })
+      .catch(function () { /* 인터넷이 안 되면 저장해 둔 곡을 그대로 쓴다 */ });
   }
 
   // ───────── 입력 모으기 (화면 건반 / 마이크) ─────────
@@ -138,8 +168,9 @@
   };
 
   function updateStatus() {
-    $('status').textContent = Sound.micActive() ? '🎤 마이크로 피아노 소리를 듣고 있어요'
-      : '👆 화면 건반으로 연주해요' + (settings.mic ? ' (마이크 꺼짐)' : '');
+    $('status').textContent = (Sound.micActive() ? '🎤 마이크로 피아노 소리를 듣고 있어요'
+      : '👆 화면 건반으로 연주해요' + (settings.mic ? ' (마이크 꺼짐)' : '')) +
+      (familySongs.length ? '  ·  👨‍👩‍👧 가족 곡 ' + familySongs.length + '개' : '');
   }
 
   var songMode = 'learn';
@@ -445,5 +476,6 @@
   }, { passive: false });
   window.addEventListener('resize', function () { Object.keys(keyboards).forEach(function (k) { keyboards[k].sig = ''; }); });
 
+  loadFamilySongs();
   requestAnimationFrame(loop);
 })();
