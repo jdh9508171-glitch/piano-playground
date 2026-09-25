@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
     <div id="startBox" class="hidden">
       <button class="pill big pink" id="startBtn">🎹 시작하기</button>
       <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
-    <p class="hint version">버전 21</p>
+    <p class="hint version">버전 22</p>
     </div>
   </div>
 </section>
@@ -114,27 +114,28 @@
   <canvas id="gameKeys" class="keys"></canvas>
 </section>
 
-<!-- 단계 깨기: 10단계 지도 -->
-<section id="course" class="screen cream">
+<!-- 미션 깨기: 월드 선택 -->
+<section id="course" class="screen worlds-bg">
   <div class="topbar">
-    <button class="round dark" data-go="home">‹</button>
-    <h2>🗺️ 미션 깨기</h2>
+    <button class="round" data-go="home">‹</button>
+    <h2 class="white">🗺️ 미션 깨기</h2>
     <div class="spacer"></div>
-    <div class="who" id="courseWho"></div>
+    <div class="who white" id="courseWho"></div>
   </div>
-  <div class="course-body"><div class="course-map" id="courseMap"></div></div>
+  <div class="course-body"><div class="world-list" id="courseMap"></div></div>
 </section>
 
-<!-- 단계 안: 곡 목록 -->
-<section id="stage" class="screen cream">
-  <div class="topbar">
-    <button class="round dark" data-go="course">‹</button>
-    <h2 id="stageTitle"></h2>
+<!-- 미션 깨기: 월드 안 스테이지 길 -->
+<section id="stage" class="screen world-screen">
+  <div class="world-head" id="worldHead">
+    <button class="round" data-go="course">‹</button>
+    <div class="wh-title"><small id="worldSub"></small><b id="stageTitle"></b></div>
     <div class="spacer"></div>
-    <b id="stageCount" class="stage-count"></b>
+    <div class="wh-stars" id="stageCount"></div>
   </div>
-  <p class="stage-desc" id="stageDesc"></p>
-  <div class="course-body"><div id="stageSongs"></div></div>
+  <div class="world-scroll" id="worldScroll"><div class="world-path" id="stageSongs"></div></div>
+  <div class="sheet-back hidden" id="sheetBack"></div>
+  <div class="sheet hidden" id="stageSheet"></div>
 </section>
 
 <!-- 배우기 메뉴 -->
@@ -282,7 +283,7 @@
     </div>
     <div class="card">
       <h3>👧👦 플레이어</h3>
-      <p class="hint">앱 버전 21</p>
+      <p class="hint">앱 버전 22</p>
       <div id="playerEdit"></div>
       <p class="hint">시작 단계: 아이가 학원에서 배우는 단계를 고르면 그 단계까지 바로 열려요.</p>
     </div>
@@ -292,13 +293,13 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=21"></script>
-<script src="js/pitch.js?v=21"></script>
-<script src="js/audio.js?v=21"></script>
-<script src="js/draw.js?v=21"></script>
-<script src="js/game.js?v=21"></script>
-<script src="js/course-data.js?v=21"></script>
-<script src="js/course.js?v=21"></script>
-<script src="js/app.js?v=21"></script>
+<script src="js/music.js?v=22"></script>
+<script src="js/pitch.js?v=22"></script>
+<script src="js/audio.js?v=22"></script>
+<script src="js/draw.js?v=22"></script>
+<script src="js/game.js?v=22"></script>
+<script src="js/course-data.js?v=22"></script>
+<script src="js/course.js?v=22"></script>
+<script src="js/app.js?v=22"></script>
 </body>
 </html>

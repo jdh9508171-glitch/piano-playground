@@ -53,29 +53,37 @@
     return n;
   }
 
-  // ───────── 단계 깨기 진행 ─────────
+  // ───────── 미션 깨기 진행 ─────────
+  // 스테이지 별 3개: ⭐ 따라 치기 완료 · ⭐⭐ 느린 게임 별2+ · ⭐⭐⭐ 보통 게임 별2+
+  // 별 1개 이상이면 다음 스테이지가 열리고, 월드의 모든 스테이지를 깨면 다음 월드가 열린다
   var STAGES = courseStages();
   var courseProg = Store.get('course', {});        // { 플레이어: { 곡id: {heard, learn, slow, normal} } }
   function progOf(songId, pid) { var p = courseProg[pid || currentPlayer] = courseProg[pid || currentPlayer] || {}; return p[songId] = p[songId] || {}; }
   function saveProg() { Store.set('course', courseProg); }
-  function passed(songId, pid) { var g = ((courseProg[pid || currentPlayer] || {})[songId]) || {}; return !!(g.learn && g.slow >= 2 && g.normal >= 2); }
-  function stageDone(i, pid) { var st = STAGES[i]; return st.songs.length > 0 && st.songs.every(function (s) { return passed(s.id, pid); }); }
+  function starsOfSong(songId, pid) {
+    var g = ((courseProg[pid || currentPlayer] || {})[songId]) || {};
+    return (g.learn ? 1 : 0) + ((g.slow || 0) >= 2 ? 1 : 0) + ((g.normal || 0) >= 2 ? 1 : 0);
+  }
+  function passed(songId, pid) { return starsOfSong(songId, pid) >= 1; }
+  function worldStars(i, pid) { return STAGES[i].songs.reduce(function (t, s) { return t + starsOfSong(s.id, pid); }, 0); }
+  function stageDone(i, pid) { var st = STAGES[i]; return st.songs.length >= 10 && st.songs.every(function (s) { return passed(s.id, pid); }); }
   function startStage(pid) { var pl = players.filter(function (x) { return x.id === (pid || currentPlayer); })[0]; return pl && pl.start ? pl.start : 0; }
   function stageOpen(i) { return i <= startStage() || (i > 0 && stageDone(i - 1)); }
   function songOpen(stageI, songI) {
     if (!stageOpen(stageI)) return false;
     return songI === 0 || passed(STAGES[stageI].songs[songI - 1].id);
   }
-  // 게임·배우기가 끝났을 때 단계 진행 기록 (처음 통과하면 점수)
+  // 게임·배우기가 끝났을 때 기록: 새 별마다 +5점, 월드 클리어 +50점
   function courseResult(ctx, kind, stars) {
     if (!ctx) return;
-    var g = progOf(ctx.song.id), was = passed(ctx.song.id), stageWas = stageDone(ctx.stage);
+    var g = progOf(ctx.song.id), before = starsOfSong(ctx.song.id), worldWas = stageDone(ctx.stage);
     if (kind === 'learn') g.learn = true;
     if (kind === 'slow') g.slow = Math.max(g.slow || 0, stars);
     if (kind === 'normal') g.normal = Math.max(g.normal || 0, stars);
     saveProg();
-    if (!was && passed(ctx.song.id)) addPoints(20);
-    if (!stageWas && stageDone(ctx.stage)) addPoints(50);
+    var gained = starsOfSong(ctx.song.id) - before;
+    if (gained > 0) { addPoints(gained * 5); ctx.newStars = gained; }
+    if (!worldWas && stageDone(ctx.stage)) { addPoints(50); ctx.worldClear = true; }
   }
 
   // 곡마다 빠르기를 따로 기억 (가족 곡은 기본 0.6배가 원곡 느낌)
@@ -400,7 +408,7 @@
     };
     function finish() {
       showResult(song.title, lesson.stars(),
-        [lesson.mistakes === 0 ? '하나도 안 틀렸어요! 🌈' : '틀린 횟수 ' + lesson.mistakes + '번'], newRec,
+        [lesson.mistakes === 0 ? '하나도 안 틀렸어요! 🌈' : '틀린 횟수 ' + lesson.mistakes + '번'].concat(courseLines(course)), newRec,
         [{ label: '🔄 한 번 더', color: 'orange', fn: function () { hideOverlay(); lesson.restart(); saved = false; msg = ''; } },
          course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
                 : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
@@ -491,7 +499,7 @@
       courseResult(course, arg.kind, n);
       showResult(song.title, n,
         ['점수 ' + game.score + '점 · 최고 콤보 ' + game.maxCombo,
-         '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss], rec,
+         '완벽 ' + game.perfect + ' · 좋아 ' + game.good + ' · 놓침 ' + game.miss].concat(courseLines(course)), rec,
         [{ label: '🔄 다시', color: 'orange', fn: function () { hideOverlay(); game.reset(); } },
          course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
                 : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
@@ -538,7 +546,7 @@
   };
 
 
-  // ───────── 단계 깨기 ─────────
+  // ───────── 미션 깨기: 월드 선택 ─────────
   screens.course = function () {
     $('courseWho').textContent = player().emoji + ' ' + player().name;
     var map = $('courseMap');
@@ -546,51 +554,129 @@
     var nowI = -1;
     STAGES.forEach(function (st, i) { if (stageOpen(i) && !stageDone(i) && nowI < 0) nowI = i; });
     STAGES.forEach(function (st, i) {
-      var open = stageOpen(i), done = stageDone(i);
-      var cnt = st.songs.filter(function (s) { return passed(s.id); }).length;
-      var t = el('button', 'stage-tile' + (open ? '' : ' locked') + (done ? ' done' : '') + (i === nowI ? ' now' : ''),
-        '<span class="se">' + (open ? st.emoji : '🔒') + '</span><b>' + (i + 1) + '단계 · ' + st.name + '</b><small>' + st.desc + '</small>' +
-        '<span class="cnt">' + (st.songs.length ? cnt + '/' + st.songs.length : '준비 중') + '</span>' +
-        '<div class="bar"><div style="width:' + (st.songs.length ? 100 * cnt / st.songs.length : 0) + '%"></div></div>');
-      t.addEventListener('click', function () {
-        if (!open) { alert('앞 단계를 모두 깨면 열려요! 🔒'); return; }
-        if (!st.songs.length) { alert('이 단계 곡은 곧 들어와요 🎵'); return; }
+      var open = stageOpen(i), stars = worldStars(i), max = st.songs.length * 3, soon = st.songs.length === 0;
+      var card = el('button', 'world-card' + (open ? '' : ' locked') + (i === nowI ? ' now' : '') + (soon ? ' soon' : ''),
+        '<span class="wnum">WORLD ' + (i + 1) + ' · ' + st.book + '</span>' +
+        '<span class="wname">' + st.world + '</span>' +
+        '<span class="wbook">' + st.desc + '</span><br>' +
+        '<span class="wstar">' + (soon ? '🛠️ 곧 열려요' : '⭐ ' + stars + ' / ' + max + (stageDone(i) ? ' · 클리어! 🏆' : '')) + '</span>' +
+        (soon ? '' : '<div class="wbar"><div style="width:' + (max ? 100 * stars / max : 0) + '%"></div></div>') +
+        '<span class="wdeco">' + st.deco.slice(0, 3).join(' ') + '</span><span class="wicon">' + st.emoji + '</span>');
+      card.style.background = 'linear-gradient(120deg, ' + st.c1 + ', ' + st.c2 + ')';
+      card.addEventListener('click', function () {
+        if (!open) { alert('앞 월드의 스테이지를 모두 깨면 열려요! 🔒'); return; }
+        if (soon) { alert('이 월드의 곡은 곧 들어와요 🛠️'); return; }
         go('stage', i);
       });
-      map.appendChild(t);
+      map.appendChild(card);
     });
+    // 지금 도전 중인 월드가 보이도록
+    setTimeout(function () { var n = map.querySelector('.now'); if (n) $('course').querySelector('.course-body').scrollTop = Math.max(0, n.offsetTop - 120); }, 30);
   };
 
+  // ───────── 미션 깨기: 월드 안 스테이지 길 (아래에서 위로) ─────────
   var stageIndex = 0, demoGen = 0;
   screens.stage = function (i) {
     if (i !== undefined) stageIndex = i;
-    var st = STAGES[stageIndex];
-    $('stageTitle').textContent = st.emoji + ' ' + (stageIndex + 1) + '단계 · ' + st.name;
-    $('stageDesc').textContent = st.desc + ' · 미션: 🎧 듣기 → 📖 따라 치기 → 🐢 느린 게임 → 🐇 보통 게임(별 2개 이상)이면 통과!';
-    $('stageCount').textContent = st.songs.filter(function (s) { return passed(s.id); }).length + ' / ' + st.songs.length;
-    var box = $('stageSongs');
-    box.innerHTML = '';
-    st.songs.forEach(function (song, k) {
-      var open = songOpen(stageIndex, k), g = progOf(song.id), ok = passed(song.id);
-      var row = el('div', 'song-row' + (open ? '' : ' locked') + (ok ? ' passed' : ''),
-        '<div class="num">' + (ok ? '✓' : k + 1) + '</div><div class="ttl">' + esc(song.title) + '<small>' + song.notes.length + '음</small></div>');
-      var steps = el('div', 'steps2');
-      function btn(label, done, fn) {
-        var b = el('button', done ? 'ok' : '', label);
-        b.disabled = !open;
-        b.addEventListener('click', fn);
-        steps.appendChild(b);
-      }
-      var ctx = { song: song, stage: stageIndex };
-      btn('🎧 듣기' + (g.heard ? ' ✓' : ''), g.heard, function () { playSongDemo(song); g.heard = true; saveProg(); screens.stage(); });
-      btn('📖 따라 치기' + (g.learn ? ' ✓' : ''), g.learn, function () { go('learn', { song: song, course: ctx }); });
-      btn('🐢 ' + starsText(g.slow || 0), (g.slow || 0) >= 2, function () { go('game', { song: song, course: ctx, speed: Math.round(st.goal * 0.6 * 20) / 20, kind: 'slow' }); });
-      btn('🐇 ' + starsText(g.normal || 0), (g.normal || 0) >= 2, function () { go('game', { song: song, course: ctx, speed: st.goal, kind: 'normal' }); });
-      row.appendChild(steps);
-      box.appendChild(row);
+    var st = STAGES[stageIndex], n = st.songs.length;
+    var scr = $('stage');
+    scr.style.background = 'linear-gradient(0deg, ' + st.c1 + ' 0%, ' + st.c2 + ' 100%)';
+    $('worldSub').textContent = 'WORLD ' + (stageIndex + 1) + ' · ' + st.book;
+    $('stageTitle').textContent = st.emoji + ' ' + st.world;
+    $('stageCount').textContent = '⭐ ' + worldStars(stageIndex) + ' / ' + n * 3;
+    closeSheet();
+
+    var path = $('stageSongs'), W = Math.min($('worldScroll').clientWidth || 700, 700), gap = 150, H = n * gap + 260;
+    path.style.height = H + 'px';
+    path.innerHTML = '';
+    // 스테이지 위치: 아래에서 위로 구불구불
+    var pts = st.songs.map(function (s, k) {
+      return { x: W / 2 + Math.sin(k * 1.15) * W * 0.28, y: H - 110 - k * gap };
     });
+    // 길 (SVG 곡선)
+    var d = '';
+    pts.forEach(function (p, k) {
+      if (k === 0) { d += 'M' + p.x + ' ' + (p.y + 80) + ' L' + p.x + ' ' + p.y; return; }
+      var q = pts[k - 1], my = (q.y + p.y) / 2;
+      d += ' C' + q.x + ' ' + my + ' ' + p.x + ' ' + my + ' ' + p.x + ' ' + p.y;
+    });
+    var top = pts[n - 1];
+    d += ' L' + top.x + ' ' + (top.y - 110);
+    path.innerHTML = '<svg width="' + W + '" height="' + H + '"><path d="' + d + '" fill="none" stroke="rgba(0,0,0,0.18)" stroke-width="34" stroke-linecap="round"/>' +
+      '<path d="' + d + '" fill="none" stroke="#fff8e6" stroke-width="22" stroke-linecap="round"/>' +
+      '<path d="' + d + '" fill="none" stroke="rgba(245,163,0,0.55)" stroke-width="4" stroke-dasharray="2 16" stroke-linecap="round"/></svg>';
+    // 장식
+    for (var k = 0; k < n + 2; k++) {
+      var dc = el('span', 'deco', st.deco[k % st.deco.length]);
+      var side = k % 2 ? 0.1 : 0.8;
+      dc.style.left = (W * side + (k * 37 % 40)) + 'px';
+      dc.style.top = (H - 60 - k * gap + (k * 53 % 60)) + 'px';
+      path.appendChild(dc);
+    }
+    // 꼭대기 깃발
+    var flag = el('div', 'goal-flag', '<span>' + (stageDone(stageIndex) ? '🏆' : '🚩') + '</span>' + (stageIndex + 1 < STAGES.length ? '다음 월드: ' + STAGES[stageIndex + 1].world : '마지막 월드!'));
+    flag.style.left = top.x + 'px'; flag.style.top = (top.y - 200) + 'px';
+    path.appendChild(flag);
+    // 스테이지 노드
+    var nowK = -1;
+    st.songs.forEach(function (song, k) { if (nowK < 0 && songOpen(stageIndex, k) && starsOfSong(song.id) === 0) nowK = k; });
+    st.songs.forEach(function (song, k) {
+      var open = songOpen(stageIndex, k), stars = starsOfSong(song.id);
+      var node = el('button', 'node' + (open ? (stars ? '' : ' open') : ' locked') + (k === nowK ? ' now' : ''),
+        (k === nowK ? '<span class="avatar">' + player().emoji + '</span>' : '') +
+        '<div class="ball">' + (open ? (stageIndex + 1) + '-' + (k + 1) : '🔒') + '</div>' +
+        '<div class="stars3">' + (open ? starsText(stars) : '') + '</div>' +
+        '<div class="ntitle">' + (open ? esc(song.title) : '') + '</div>');
+      node.style.left = pts[k].x + 'px'; node.style.top = (pts[k].y - 46) + 'px';
+      node.addEventListener('click', function () {
+        if (!open) { alert('앞 스테이지를 먼저 깨요! (별 1개 이상) 🔒'); return; }
+        openSheet(k);
+      });
+      path.appendChild(node);
+    });
+    // 지금 도전할 스테이지가 화면 가운데 오도록
+    setTimeout(function () {
+      var target = nowK >= 0 ? pts[nowK].y : pts[n - 1].y;
+      $('worldScroll').scrollTop = Math.max(0, target - $('worldScroll').clientHeight / 2);
+    }, 30);
     leaveFn = function () { demoGen++; Sound.allOff(); };
   };
+
+  // 스테이지 도전 창
+  function closeSheet() { $('stageSheet').classList.add('hidden'); $('sheetBack').classList.add('hidden'); }
+  $('sheetBack').addEventListener('click', function () { closeSheet(); demoGen++; Sound.allOff(); });
+  function openSheet(k) {
+    var st = STAGES[stageIndex], song = st.songs[k], g = progOf(song.id), stars = starsOfSong(song.id);
+    var ctx = { song: song, stage: stageIndex };
+    var slowSp = Math.round(st.goal * 0.6 * 20) / 20;
+    var sh = $('stageSheet');
+    sh.innerHTML = '<div class="snum">STAGE ' + (stageIndex + 1) + '-' + (k + 1) + '</div><h1>' + esc(song.title) + '</h1>' +
+      '<div class="bigstars">' + starsText(stars) + '</div>';
+    function mission(icon, title, sub, done, label, fn) {
+      var m = el('div', 'mission' + (done ? ' done' : ''),
+        '<span class="mi">' + icon + '</span><span class="mt">' + title + '<small>' + sub + '</small></span><span class="mdone">' + (done ? '✅' : '') + '</span>');
+      var b = el('button', '', label);
+      b.addEventListener('click', fn);
+      m.appendChild(b);
+      sh.appendChild(m);
+    }
+    mission('🎧', '먼저 들어보기', '어떤 곡인지 들어봐요', g.heard, g.heard ? '다시 듣기' : '듣기', function () { playSongDemo(song); g.heard = true; saveProg(); });
+    mission('📖', '따라 치기', '⭐ 첫 번째 별', g.learn, g.learn ? '다시' : '도전', function () { go('learn', { song: song, course: ctx }); });
+    mission('🐢', '느린 게임 (' + slowSp + '배)', '⭐⭐ 별 2개 이상이면 두 번째 별', (g.slow || 0) >= 2, (g.slow || 0) >= 2 ? '다시' : '도전', function () { go('game', { song: song, course: ctx, speed: slowSp, kind: 'slow' }); });
+    mission('🐇', '보통 게임 (' + st.goal + '배)', '⭐⭐⭐ 별 2개 이상이면 세 번째 별', (g.normal || 0) >= 2, (g.normal || 0) >= 2 ? '다시' : '도전', function () { go('game', { song: song, course: ctx, speed: st.goal, kind: 'normal' }); });
+    sh.classList.remove('hidden');
+    $('sheetBack').classList.remove('hidden');
+  }
+
+  // 결과 창에 미션 소식 한 줄
+  function courseLines(ctx) {
+    if (!ctx) return [];
+    var out = [];
+    if (ctx.newStars) out.push('<b style="color:#e8a100">🌟 미션 별 ' + ctx.newStars + '개 획득! (지금 ' + starsText(starsOfSong(ctx.song.id)) + ')</b>');
+    if (ctx.worldClear) out.push('<b style="color:#34b36b">🏆 월드 클리어! 다음 월드가 열렸어요!</b>');
+    ctx.newStars = 0; ctx.worldClear = false;
+    return out;
+  }
 
   function playSongDemo(song) {
     demoGen++; Sound.allOff();
