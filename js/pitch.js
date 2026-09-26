@@ -2,7 +2,8 @@
 // 입력을 절반 속도로 줄여(약 22kHz) 구형 아이패드에서도 가볍게 돌아가게 했다.
 'use strict';
 
-function PitchDetector(sampleRate) {
+function PitchDetector(sampleRate, fast) {
+  this.fast = !!fast;        // 빠른 반응: 분석 간격을 절반(약 12ms)으로
   this.sensitivity = 0.5;   // 0(둔감) ~ 1(민감)
   this.speechFilter = true; // 말소리 거르기
   this.maxDrift = 0.07;     // 음높이 흔들림 허용치 (반음 단위)
@@ -17,7 +18,7 @@ function PitchDetector(sampleRate) {
 PitchDetector.prototype.configure = function (sampleRate) {
   this.sr = sampleRate / 2;
   this.window = 1024;
-  this.hop = 512;                       // 약 23ms마다 분석
+  this.hop = this.fast ? 256 : 512;     // 약 12ms(빠른 반응) 또는 23ms마다 분석
   this.fps = this.sr / this.hop;
   this.buf = new Float32Array(8192);
   this.len = 0;
@@ -111,8 +112,10 @@ PitchDetector.prototype.analyze = function (x) {
   if (rec) threshold = -42 - this.sensitivity * 25;
 
   // 새로 들어온 구간이 바로 앞 구간보다 확 커지면 건반을 새로 친 것
-  var oldR = rmsOf(x, W - 2 * H, H), newR = rmsOf(x, W - H, H);
-  var oldHF = highFreqOf(x, W - 2 * H, H), newHF = highFreqOf(x, W - H, H);
+  // (분석 간격과 상관없이 반 창씩 비교해서, 빠른 반응에서도 울림의 출렁임을 새로 친 것으로 착각하지 않게)
+  var S = W / 2;
+  var oldR = rmsOf(x, 0, S), newR = rmsOf(x, S, S);
+  var oldHF = highFreqOf(x, 0, S), newHF = highFreqOf(x, S, S);
   this.framesSinceEmit++;
   this.onsetAge++;
   // (조용하다가 소리가 나기 시작한 것도 건반을 친 것으로 본다)
@@ -154,14 +157,16 @@ PitchDetector.prototype.analyze = function (x) {
 
   if (midi === this.candidate) { this.stable++; this.history.push(exact); }
   else { this.candidate = midi; this.stable = 1; this.history = [exact]; }
-  if (this.history.length > this.need) this.history.shift();
+  if (this.history.length > (this.fast ? 5 : this.need)) this.history.shift();
 
   var isExpected = !!(this.expected && (this.expected[midi] || this.expected[midi + 12] || this.expected[midi - 12]));
-  var ready;
+  var ready, need = this.need;
+  // 빠른 반응: 분석 간격이 절반이라, 말소리를 거를 만큼(약 60ms) 지켜보되 지금 쳐야 할 음이면 약 35ms만 보고 인정
+  if (this.fast) need = isExpected ? 3 : 5;
   if (strict) {
     // 말소리는 음높이가 계속 미끄러지고, 피아노는 거의 그대로다: 최근 3번의 음높이 차이가 아주 작아야 함
     var hi = Math.max.apply(null, this.history), lo = Math.min.apply(null, this.history);
-    ready = this.stable >= this.need && hi - lo < (isExpected ? 0.15 : this.maxDrift);
+    ready = this.stable >= need && hi - lo < (isExpected ? 0.15 : this.maxDrift);
   } else {
     ready = this.stable >= 2;
   }

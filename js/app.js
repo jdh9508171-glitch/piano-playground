@@ -15,6 +15,8 @@
 
   var settings = Store.get('settings', null) || { mic: true, sens: 0.5, letters: false, drums: true, guide: true, speed: 0.8 };
   if (settings.speech === undefined) settings.speech = true;   // 말소리 거르기
+  if (settings.fast === undefined) settings.fast = true;       // 빠른 반응
+  LATENCY.mic = settings.fast ? 0.1 : 0.14;
   function saveSettings() { Store.set('settings', settings); }
 
   var EMOJIS = ['🐰', '🐻', '🐶', '🐱', '🦊', '🐼', '🐯', '🦄', '🐸', '🐧', '🦖', '🐹'];
@@ -222,7 +224,7 @@
   function startMicIfNeeded() {
     $('micWarn').textContent = '';
     if (!settings.mic) { Sound.stopMic(); return; }
-    Sound.startMic(onMicNote, settings.sens, settings.speech).then(function (ok) {
+    Sound.startMic(onMicNote, settings.sens, settings.speech, settings.fast).then(function (ok) {
       if (!ok) {
         $('micWarn').textContent = location.protocol === 'https:'
           ? '마이크를 켤 수 없어요. 사파리 주소창 왼쪽 "AA" › 웹 사이트 설정에서 마이크를 허용해 주세요.'
@@ -1075,6 +1077,7 @@
   screens.settings = function () {
     $('setMic').checked = settings.mic;
     $('setSpeech').checked = settings.speech;
+    $('setFast').checked = settings.fast;
     $('setSens').value = settings.sens;
     $('setDrums').checked = settings.drums;
     $('setGuide').checked = settings.guide;
@@ -1123,6 +1126,10 @@
   $('setMic').addEventListener('change', function () { settings.mic = this.checked; saveSettings(); startMicIfNeeded(); });
   $('setSens').addEventListener('input', function () { settings.sens = +this.value; saveSettings(); Sound.setSensitivity(settings.sens); });
   $('setSpeech').addEventListener('change', function () { settings.speech = this.checked; saveSettings(); Sound.setSpeechFilter(settings.speech); });
+  $('setFast').addEventListener('change', function () {
+    settings.fast = this.checked; saveSettings(); LATENCY.mic = settings.fast ? 0.1 : 0.14;
+    if (settings.mic) { Sound.stopMic(); startMicIfNeeded(); }
+  });
   $('setDrums').addEventListener('change', function () { settings.drums = this.checked; saveSettings(); });
   $('setGuide').addEventListener('change', function () { settings.guide = this.checked; saveSettings(); });
   Array.prototype.forEach.call(document.querySelectorAll('[data-letters]'), function (b) {

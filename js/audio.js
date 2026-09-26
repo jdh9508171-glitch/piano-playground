@@ -139,7 +139,7 @@ var Sound = (function () {
   }
 
   // 마이크 켜기. 성공하면 true를 돌려주는 Promise
-  function startMic(onNote, sensitivity, speechFilter) {
+  function startMic(onNote, sensitivity, speechFilter, fast) {
     if (!ctx) unlock();
     if (mic.stream && mic.stream.getAudioTracks()[0] && mic.stream.getAudioTracks()[0].readyState === 'live') {
       mic.detector.onNote = onNote; return Promise.resolve(true);
@@ -159,10 +159,11 @@ var Sound = (function () {
           unlock();
         }
         mic.source = ctx.createMediaStreamSource(stream);
-        mic.proc = ctx.createScriptProcessor(2048, 1, 1);
+        // 빠른 반응: 소리를 더 잘게(약 23ms씩) 받아서 기다리는 시간을 줄인다
+        mic.proc = ctx.createScriptProcessor(fast ? 1024 : 2048, 1, 1);
         mic.sink = ctx.createGain();
         mic.sink.gain.value = 0;
-        mic.detector = new PitchDetector(ctx.sampleRate);
+        mic.detector = new PitchDetector(ctx.sampleRate, fast);
         mic.detector.sensitivity = sensitivity;
         mic.detector.speechFilter = speechFilter !== false;
         mic.detector.onNote = onNote;

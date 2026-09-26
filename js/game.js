@@ -9,7 +9,7 @@ function sameNote(expected, played, source) {
   return source === 'mic' && Math.abs(expected - played) === 12;
 }
 
-var LATENCY = { touch: 0.02, mic: 0.14 };   // 소리가 난 뒤 앱이 알아채기까지 걸리는 시간
+var LATENCY = { touch: 0.02, mic: 0.14 };   // 소리가 난 뒤 앱이 알아채기까지 걸리는 시간 (빠른 반응이면 mic 0.1)
 
 // ───────────── 리듬 게임 ─────────────
 function Game(song, speed, opts) {
