@@ -346,3 +346,8 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
   .free-note.big { font-size: 80px; }
   #guideMain { font-size: 32px; }
 }
+
+/* 구구단 */
+.menu-card.gold { background: #f0a500; }
+.quiz-choices button.num { font-size: 40px; min-width: 110px; }
+.gugu-box { display: inline-block; min-width: 1.2em; padding: 0 .15em; border: 4px dashed #f0a500; border-radius: 14px; color: #f0a500; line-height: 1.1; }

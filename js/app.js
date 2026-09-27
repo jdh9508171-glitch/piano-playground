@@ -748,7 +748,7 @@
     var quiz = new Quiz(type, quizLevel, allSongs()), kb = keyboards.quizKeys || makeKeyboard('quizKeys');
     var T = QUIZ_TYPES[type], msg = '', msgColor = '#000', done = false, picked = {};
     kb.low = quiz.info.low; kb.high = quiz.info.high;
-    $('quizTitle').textContent = T.title + (type === 'guess' ? '' : ' · ' + quiz.info.name);
+    $('quizTitle').textContent = T.title + (type === 'guess' ? '' : ' · ' + quiz.info.name) + (type === 'gugu' ? ' (' + GUGU_LEVELS[quizLevel].desc + ')' : '');
     var canReplay = type === 'ear' || type === 'updown' || type === 'guess' || type === 'memory';
     $('quizReplay').classList.toggle('hidden', !canReplay);
     $('quizReplay').onclick = function () { if (!quiz.demo) quiz.play(); };
@@ -801,7 +801,7 @@
       if (T.keys) return;
       quiz.choices.forEach(function (c, i) {
         var label = c.midi !== undefined ? Music.name(c.midi, settings.letters) : c.label;
-        var b = el('button', (type === 'guess' ? 'wide ' : '') + (picked[i] ? 'bad' : ''), esc(label));
+        var b = el('button', (type === 'guess' ? 'wide ' : '') + (type === 'gugu' ? 'num ' : '') + (picked[i] ? 'bad' : ''), esc(label));
         if (c.midi !== undefined) b.style.color = Music.color(c.midi);
         b.addEventListener('click', function () {
           var r = quiz.choose(i);
@@ -825,7 +825,7 @@
         checkEnd();
       }
       if (quiz.choices !== lastChoices || lastSig === '') { lastChoices = quiz.choices; renderChoices(); }
-      var sig = [t, quiz.index, msg, quiz.wrongNow >= 3, quiz.demo, $('quizStaff').clientWidth].join('|');
+      var sig = [t, quiz.index, msg, quiz.wrongNow >= 3, quiz.demo, quiz.lastGugu, quiz.waiting, $('quizStaff').clientWidth].join('|');
       if (sig === lastSig) return;
       lastSig = sig;
       if (type === 'memory') {
@@ -850,6 +850,9 @@
         P.innerHTML = '🎵 두 번째 소리는?';
       } else if (type === 'guess') {
         P.innerHTML = '🎵 무슨 곡일까요?';
+      } else if (type === 'gugu') {
+        var g = quiz.gugu, hint = quiz.wrongNow >= 3 || quiz.waiting, box = function (v) { return hint ? '<span style="color:#2a9d4b">' + v + '</span>' : '<span class="gugu-box">?</span>'; };
+        P.innerHTML = g.blank ? g.x + ' × ' + box(g.y) + ' = ' + g.x * g.y : g.x + ' × ' + g.y + ' = ' + box(g.x * g.y);
       } else if (type === 'memory') {
         P.innerHTML = quiz.demo ? '👀 잘 보고 들어요…' : '🎹 이제 따라 쳐요!';
       }

@@ -338,6 +338,7 @@ var QUIZ_LEVELS = [
 //  ear    소리 듣고 치기        updown 두 소리 높낮이 맞히기
 //  memory 들려준 순서대로 따라 치기 (점점 길어짐)
 //  guess  곡 앞부분 듣고 제목 맞히기
+//  gugu   구구단 (단계마다 나오는 단이 다름, 4단계는 빈칸 채우기)
 var QUIZ_TYPES = {
   read: { title: '🎼 계이름 퀴즈', keys: true },
   choice: { title: '🔤 계이름 고르기', keys: false },
@@ -346,8 +347,17 @@ var QUIZ_TYPES = {
   ear: { title: '👂 소리 듣고 찾기', keys: true },
   updown: { title: '⬆️ 높낮이 맞히기', keys: false },
   memory: { title: '🧠 따라 치기', keys: true },
-  guess: { title: '🎵 곡 맞히기', keys: false }
+  guess: { title: '🎵 곡 맞히기', keys: false },
+  gugu: { title: '✖️ 구구단', keys: false }
 };
+
+// 구구단 단계: 나오는 단
+var GUGU_LEVELS = [
+  { desc: '2~5단', dans: [2, 3, 4, 5] },
+  { desc: '6~9단', dans: [6, 7, 8, 9] },
+  { desc: '2~9단 섞어서', dans: [2, 3, 4, 5, 6, 7, 8, 9] },
+  { desc: '빈칸 채우기', dans: [2, 3, 4, 5, 6, 7, 8, 9], blank: true }
+];
 
 function shuffle(a) {
   for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
@@ -427,6 +437,22 @@ Quiz.prototype.next = function () {
       this.choices = shuffle(titles).map(function (x) { return { label: x.emoji + ' ' + x.title }; });
       this.answer = this.choices.map(function (c) { return c.label; }).indexOf(song.emoji + ' ' + song.title);
       this.play();
+      break;
+    case 'gugu':
+      var G = GUGU_LEVELS[this.level], x, y, key;
+      do { x = pick(G.dans); y = 1 + Math.floor(Math.random() * 9); key = x + 'x' + y; } while (this.lastGugu === key);
+      this.lastGugu = key;
+      // 빈칸 채우기: 7 × □ = 56 (답은 □)
+      var blank = G.blank && Math.random() < 0.7;
+      var ans = blank ? y : x * y;
+      this.gugu = { x: x, y: y, blank: blank, ans: ans };
+      var opts = [ans], near = blank
+        ? [y - 1, y + 1, y - 2, y + 2, y + 3, y - 3]
+        : [x * (y + 1), x * (y - 1), (x + 1) * y, (x - 1) * y, ans + 1, ans - 1, ans + 2, ans + 10, ans - 10];
+      shuffle(near).forEach(function (v) { if (opts.length < 4 && v > 0 && (!blank || v <= 9) && opts.indexOf(v) < 0) opts.push(v); });
+      for (var v = 1; opts.length < 4; v++) if (opts.indexOf(v) < 0) opts.push(v);
+      this.choices = shuffle(opts).map(function (v) { return { label: String(v), value: v }; });
+      this.answer = this.choices.map(function (c) { return c.value; }).indexOf(ans);
       break;
     case 'memory':
       this.seq.push(pick(pool));
