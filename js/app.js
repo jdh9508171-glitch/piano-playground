@@ -406,7 +406,16 @@
     var lesson = new Lesson(song), kb = keyboards.learnKeys || makeKeyboard('learnKeys');
     var msg = '', msgColor = '#000', saved = false, newRec = false;
     var mode = Store.get('learnMode', 'step');
-    var phrases = lesson.phrases(), ph = 0, reps = 0, phDone = {}, looping = false, chips = [];
+    var breaksAll = Store.get('learnBreaks', {}), editing = false;   // 곡마다 직접 나눈 줄 {곡id: [새 줄이 시작하는 음 번호]}
+    // 직접 나눈 줄이 있으면 그 줄이 곧 한 소절
+    function makePhrases() {
+      var b = (breaksAll[song.id] || []).filter(function (i) { return i > 0 && i < lesson.notes.length; }).sort(function (a, c) { return a - c; });
+      if (!b.length) return lesson.phrases();
+      var starts = [0].concat(b), out = [];
+      starts.forEach(function (s, k) { out.push({ start: s, end: k + 1 < starts.length ? starts[k + 1] : lesson.notes.length }); });
+      return out;
+    }
+    var phrases = makePhrases(), ph = 0, reps = 0, phDone = {}, looping = false, chips = [];
     kb.low = song.range.low; kb.high = song.range.high; kb.letters = settings.letters;
     $('learnTitle').textContent = song.emoji + ' ' + song.title;
     var cheers = ['잘했어요! 👏', '좋아요! ✨', '멋져요! 🌟', '정확해요! 🎯', '최고! 💯'];
@@ -488,29 +497,71 @@
     // 전체 보고 치기: 마디별 계이름 칸
     function buildSheet() {
       var box = $('learnSheet'), L = settings.letters, bpb = song.beatsPerBar || 4, barEl = null, lastBar = null;
+      var custom = !!(breaksAll[song.id] && breaksAll[song.id].length), lineStart = {};
       box.innerHTML = ''; chips = [];
+      box.classList.toggle('editing', editing);
+      box.classList.toggle('lines', custom);
+      if (custom) makePhrases().forEach(function (p, k) { lineStart[p.start] = k; });
       lesson.notes.forEach(function (n, i) {
-        var b = Math.floor(n.beat / bpb + 1e-6);
-        if (barEl === null || b !== lastBar) { barEl = el('span', 'bar', ''); box.appendChild(barEl); lastBar = b; }
+        if (custom) {
+          // 직접 나눈 줄: 한 줄 = 한 소절, 줄 앞의 🔁 를 누르면 그 줄만 반복 연습
+          if (lineStart[i] !== undefined) {
+            barEl = el('div', 'line', '');
+            var k = lineStart[i], tag = el('button', 'line-tag', (k + 1) + '줄 🔁');
+            tag.addEventListener('click', function () { setMode('phrase'); startPhrase(k); });
+            barEl.appendChild(tag); box.appendChild(barEl);
+          }
+        } else {
+          var b = Math.floor(n.beat / bpb + 1e-6);
+          if (barEl === null || b !== lastBar) { barEl = el('span', 'bar', ''); box.appendChild(barEl); lastBar = b; }
+        }
         var w = L ? '' : Music.octaveWord(n.midi);
-        var c = el('span', 'chip', '<small>' + (w || '&nbsp;') + '</small>' + Music.name(n.midi, L));
+        var c = el('span', 'chip' + (editing && lineStart[i] !== undefined && i > 0 ? ' cut' : ''), '<small>' + (w || '&nbsp;') + '</small>' + Music.name(n.midi, L));
         c.style.color = Music.color(n.midi);
-        c.addEventListener('click', function () { lesson.stopDemo(); lesson.index = i; msg = ''; Sound.noteOn(n.midi, 0.8, 0.6); lastSig = ''; });
+        c.addEventListener('click', function () {
+          if (editing) { toggleBreak(i); return; }
+          lesson.stopDemo(); lesson.index = i; msg = ''; Sound.noteOn(n.midi, 0.8, 0.6); lastSig = '';
+        });
         barEl.appendChild(c); chips.push(c);
       });
     }
+    // 줄 나누기: 누른 칸부터 새 줄 (한 번 더 누르면 다시 붙이기)
+    function toggleBreak(i) {
+      if (i === 0) return;
+      var b = (breaksAll[song.id] || []).slice(), at = b.indexOf(i);
+      if (at >= 0) b.splice(at, 1); else b.push(i);
+      if (b.length) breaksAll[song.id] = b; else delete breaksAll[song.id];
+      Store.set('learnBreaks', breaksAll);
+      phrases = makePhrases(); phDone = {};
+      var box = $('learnSheet'), keep = box.scrollTop;
+      buildSheet(); box.scrollTop = keep; lastSig = '';
+    }
+    function setEditing(on) {
+      editing = on;
+      $('sheetEdit').textContent = on ? '✅ 다 됐어요' : '✂️ 줄 나누기';
+      $('sheetHint').textContent = on ? '칸을 누르면 그 칸부터 새 줄이 돼요 (다시 누르면 붙어요)' : (breaksAll[song.id] ? '줄 앞 🔁 를 누르면 그 줄만 반복해요' : '');
+      buildSheet(); lastSig = '';
+    }
+    $('sheetEdit').onclick = function () { setEditing(!editing); };
+    $('sheetReset').onclick = function () {
+      delete breaksAll[song.id]; Store.set('learnBreaks', breaksAll);
+      phrases = makePhrases(); phDone = {}; setEditing(false);
+    };
 
     function setMode(m) {
       mode = m; Store.set('learnMode', m);
       lesson.stopDemo(); msg = ''; looping = false;
-      if (m === 'phrase') startPhrase(phraseOf(lesson.finished() ? 0 : lesson.index));
-      if (m === 'sheet') { buildSheet(); if (lesson.finished()) lesson.index = 0; }
+      if (m === 'phrase') { phrases = makePhrases(); startPhrase(phraseOf(lesson.finished() ? 0 : lesson.index)); }
+      if (m !== 'sheet') editing = false;
+      if (m === 'sheet') { setEditing(false); if (lesson.finished()) lesson.index = 0; }
       if (m === 'step' && lesson.finished()) lesson.restart();
       Array.prototype.forEach.call(document.querySelectorAll('#learnModes button'), function (b) {
         b.classList.toggle('on', b.getAttribute('data-lm') === m);
       });
       $('phraseBar').classList.toggle('hidden', m !== 'phrase');
       $('learnSheet').classList.toggle('hidden', m !== 'sheet');
+      $('sheetBar').classList.toggle('hidden', m !== 'sheet');
+      $('learn').classList.toggle('sheet-mode', m === 'sheet');
       $('staff').style.display = m === 'sheet' ? 'none' : '';
       $('btnPart').textContent = m === 'phrase' ? '🎧 이 소절 듣기' : '🎧 다음 부분';
       lastSig = '';
@@ -579,7 +630,7 @@
         drawStaff($('staff'), win, focus - start, L);
       }
       if (mode === 'sheet') {
-        chips.forEach(function (c, i) { c.className = 'chip' + (i < focus ? ' done' : '') + (i === focus ? ' now' : ''); });
+        if (!editing) chips.forEach(function (c, i) { c.className = 'chip' + (i < focus ? ' done' : '') + (i === focus ? ' now' : ''); });
         var cur = chips[Math.min(focus, chips.length - 1)], box = $('learnSheet');
         if (cur) {
           var top = cur.offsetTop - box.offsetTop;
@@ -591,7 +642,7 @@
         $('guideMain').innerHTML = '<span style="color:#9b5cf6">👂 잘 들어보세요… ' + Music.fullName(hintMidi, L) + '</span>';
         $('guideMsg').textContent = '';
       } else if (mode === 'sheet') {
-        $('guideMain').innerHTML = '<span style="font-size:28px">📜 노란 칸부터 보면서 쳐 보세요</span>';
+        $('guideMain').innerHTML = '<span style="font-size:28px">' + (editing ? '✂️ 새 줄을 시작할 칸을 눌러요' : '📜 노란 칸부터 보면서 쳐 보세요') + '</span>';
         $('guideMsg').textContent = msg;
         $('guideMsg').style.color = msgColor;
       } else if (hintMidi !== null && !looping) {
