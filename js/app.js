@@ -406,7 +406,7 @@
     var lesson = new Lesson(song), kb = keyboards.learnKeys || makeKeyboard('learnKeys');
     var msg = '', msgColor = '#000', saved = false, newRec = false;
     var mode = Store.get('learnMode', 'step');
-    var breaksAll = Store.get('learnBreaks', {}), editing = false;   // 곡마다 직접 나눈 줄 {곡id: [새 줄이 시작하는 음 번호]}
+    var breaksAll = Store.get('learnBreaks', {}), editing = false, undoStack = [];   // 되돌리기: 바꾸기 전 줄 나누기를 차례로 쌓아 둠   // 곡마다 직접 나눈 줄 {곡id: [새 줄이 시작하는 음 번호]}
     // 직접 나눈 줄이 있으면 그 줄이 곧 한 소절
     function makePhrases() {
       var b = (breaksAll[song.id] || []).filter(function (i) { return i > 0 && i < lesson.notes.length; }).sort(function (a, c) { return a - c; });
@@ -526,26 +526,40 @@
       });
     }
     // 줄 나누기: 누른 칸부터 새 줄 (한 번 더 누르면 다시 붙이기)
+    function saveBreaks(b) {
+      if (b && b.length) breaksAll[song.id] = b; else delete breaksAll[song.id];
+      Store.set('learnBreaks', breaksAll);
+      phrases = makePhrases(); phDone = {};
+    }
     function toggleBreak(i) {
       if (i === 0) return;
       var b = (breaksAll[song.id] || []).slice(), at = b.indexOf(i);
+      undoStack.push(b.slice());
       if (at >= 0) b.splice(at, 1); else b.push(i);
-      if (b.length) breaksAll[song.id] = b; else delete breaksAll[song.id];
-      Store.set('learnBreaks', breaksAll);
-      phrases = makePhrases(); phDone = {};
+      saveBreaks(b);
+      redraw();
+    }
+    function redraw() {
       var box = $('learnSheet'), keep = box.scrollTop;
       buildSheet(); box.scrollTop = keep; lastSig = '';
+      $('sheetUndo').disabled = !undoStack.length;
     }
+    $('sheetUndo').onclick = function () {
+      if (!undoStack.length) return;
+      saveBreaks(undoStack.pop());
+      redraw();
+    };
     function setEditing(on) {
       editing = on;
       $('sheetEdit').textContent = on ? '✅ 다 됐어요' : '✂️ 줄 나누기';
       $('sheetHint').textContent = on ? '칸을 누르면 그 칸부터 새 줄이 돼요 (다시 누르면 붙어요)' : (breaksAll[song.id] ? '줄 앞 🔁 를 누르면 그 줄만 반복해요' : '');
-      buildSheet(); lastSig = '';
+      redraw();
     }
     $('sheetEdit').onclick = function () { setEditing(!editing); };
     $('sheetReset').onclick = function () {
-      delete breaksAll[song.id]; Store.set('learnBreaks', breaksAll);
-      phrases = makePhrases(); phDone = {}; setEditing(false);
+      if (!breaksAll[song.id]) return;
+      undoStack.push(breaksAll[song.id].slice());
+      saveBreaks(null); setEditing(false);
     };
 
     function setMode(m) {
