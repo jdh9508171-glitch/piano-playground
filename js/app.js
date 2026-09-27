@@ -400,45 +400,135 @@
     reader.readAsArrayBuffer(file);
   });
 
-  // 배우기
+  // 배우기: 👣 한 음씩 / 📜 전체 보고 치기 / 🔁 소절 반복
   screens.learn = function (arg) {
     var song = arg && arg.song ? arg.song : arg, course = arg && arg.course ? arg.course : null;
     var lesson = new Lesson(song), kb = keyboards.learnKeys || makeKeyboard('learnKeys');
     var msg = '', msgColor = '#000', saved = false, newRec = false;
+    var mode = Store.get('learnMode', 'step');
+    var phrases = lesson.phrases(), ph = 0, reps = 0, phDone = {}, looping = false, chips = [];
     kb.low = song.range.low; kb.high = song.range.high; kb.letters = settings.letters;
     $('learnTitle').textContent = song.emoji + ' ' + song.title;
     var cheers = ['잘했어요! 👏', '좋아요! ✨', '멋져요! 🌟', '정확해요! 🎯', '최고! 💯'];
 
-    noteHandler = function (midi, source) {
-      var r = lesson.handle(midi, source);
+    function wrongMsg(midi) {
       var L = settings.letters;
-      if (r === 'right') { msg = lesson.finished() ? '다 쳤어요! 🎉' : cheers[lesson.index % cheers.length]; msgColor = '#2a9d4b'; }
-      if (r === 'wrong') {
-        msg = '그건 ' + Music.particle(Music.fullName(midi, L), '이에요', '예요') + '. ' +
-              Music.particle(Music.fullName(lesson.target(), L), '을', '를') + ' 찾아봐요!';
-        msgColor = '#e03131';
-      }
-      if (lesson.finished() && !saved) {
-        saved = true;
-        newRec = record('learn', song.id, lesson.stars());
-        addPoints(10 + lesson.stars() * 2);
-        courseResult(course, 'learn', lesson.stars());
-        setTimeout(finish, 500);
-      }
-    };
+      msg = '그건 ' + Music.particle(Music.fullName(midi, L), '이에요', '예요') + '. ' +
+            Music.particle(Music.fullName(lesson.target(), L), '을', '를') + ' 찾아봐요!';
+      msgColor = '#e03131';
+    }
+    // 배우기 완료 기록 (미션 ⭐ 포함)
+    function complete(showBox) {
+      if (saved) return;
+      saved = true;
+      newRec = record('learn', song.id, lesson.stars());
+      addPoints(10 + lesson.stars() * 2);
+      courseResult(course, 'learn', lesson.stars());
+      if (showBox) setTimeout(finish, 500);
+    }
     function finish() {
       showResult(song.title, lesson.stars(),
         [lesson.mistakes === 0 ? '하나도 안 틀렸어요! 🌈' : '틀린 횟수 ' + lesson.mistakes + '번'].concat(courseLines(course)), newRec,
-        [{ label: '🔄 한 번 더', color: 'orange', fn: function () { hideOverlay(); lesson.restart(); saved = false; msg = ''; } },
+        [{ label: '🔄 한 번 더', color: 'orange', fn: function () { hideOverlay(); restart(); } },
          course ? { label: '🗺️ 미션으로', color: 'green', fn: function () { go('stage'); } }
                 : { label: '📋 목록', color: 'blue', fn: function () { go('songs'); } }]);
     }
 
+    // 소절 반복
+    function startPhrase(i) {
+      ph = Math.max(0, Math.min(phrases.length - 1, i));
+      reps = 0; looping = false; msg = '';
+      lesson.stopDemo();
+      lesson.index = phrases[ph].start;
+      lastSig = '';
+    }
+    function phraseOf(idx) {
+      for (var i = 0; i < phrases.length; i++) if (idx < phrases[i].end) return i;
+      return phrases.length - 1;
+    }
+
+    noteHandler = function (midi, source) {
+      if (looping) return;
+      var r = lesson.handle(midi, source);
+      if (!r) return;
+      if (mode === 'sheet') {
+        if (r === 'right') { msg = lesson.finished() ? '끝까지 쳤어요! 🎉 음표를 누르면 거기부터 다시 쳐요' : ''; msgColor = '#2a9d4b'; }
+        else wrongMsg(midi);
+        return;
+      }
+      if (mode === 'phrase') {
+        var P = phrases[ph];
+        if (r === 'wrong') { wrongMsg(midi); return; }
+        if (lesson.index < P.end) { msg = cheers[lesson.index % cheers.length]; msgColor = '#2a9d4b'; return; }
+        // 한 소절 끝 → 처음으로 돌아가 반복
+        reps++; phDone[ph] = true;
+        msg = '성공 ' + reps + '번! ' + (reps >= 3 ? '👍 이제 "다음 소절"로 가도 돼요' : '한 번 더 쳐 봐요 🔁');
+        msgColor = '#2a9d4b';
+        var allDone = phrases.every(function (x, i) { return phDone[i]; });
+        if (allDone && !saved) { complete(false); msg = '모든 소절 성공! 🎉 이 곡 배우기 완료'; }
+        looping = true;
+        var at = ph;
+        setTimeout(function () { if (mode === 'phrase' && ph === at) { lesson.index = phrases[at].start; lastSig = ''; } looping = false; }, 700);
+        return;
+      }
+      // 한 음씩
+      if (r === 'right') { msg = lesson.finished() ? '다 쳤어요! 🎉' : cheers[lesson.index % cheers.length]; msgColor = '#2a9d4b'; }
+      if (r === 'wrong') wrongMsg(midi);
+      if (lesson.finished()) complete(true);
+    };
+
+    function restart() {
+      msg = '';
+      if (mode === 'phrase') { startPhrase(ph); return; }
+      lesson.restart();
+      if (mode === 'step') saved = false;
+      lastSig = '';
+    }
+
+    // 전체 보고 치기: 마디별 계이름 칸
+    function buildSheet() {
+      var box = $('learnSheet'), L = settings.letters, bpb = song.beatsPerBar || 4, barEl = null, lastBar = null;
+      box.innerHTML = ''; chips = [];
+      lesson.notes.forEach(function (n, i) {
+        var b = Math.floor(n.beat / bpb + 1e-6);
+        if (barEl === null || b !== lastBar) { barEl = el('span', 'bar', ''); box.appendChild(barEl); lastBar = b; }
+        var w = L ? '' : Music.octaveWord(n.midi);
+        var c = el('span', 'chip', '<small>' + (w || '&nbsp;') + '</small>' + Music.name(n.midi, L));
+        c.style.color = Music.color(n.midi);
+        c.addEventListener('click', function () { lesson.stopDemo(); lesson.index = i; msg = ''; Sound.noteOn(n.midi, 0.8, 0.6); lastSig = ''; });
+        barEl.appendChild(c); chips.push(c);
+      });
+    }
+
+    function setMode(m) {
+      mode = m; Store.set('learnMode', m);
+      lesson.stopDemo(); msg = ''; looping = false;
+      if (m === 'phrase') startPhrase(phraseOf(lesson.finished() ? 0 : lesson.index));
+      if (m === 'sheet') { buildSheet(); if (lesson.finished()) lesson.index = 0; }
+      if (m === 'step' && lesson.finished()) lesson.restart();
+      Array.prototype.forEach.call(document.querySelectorAll('#learnModes button'), function (b) {
+        b.classList.toggle('on', b.getAttribute('data-lm') === m);
+      });
+      $('phraseBar').classList.toggle('hidden', m !== 'phrase');
+      $('learnSheet').classList.toggle('hidden', m !== 'sheet');
+      $('staff').style.display = m === 'sheet' ? 'none' : '';
+      $('btnPart').textContent = m === 'phrase' ? '🎧 이 소절 듣기' : '🎧 다음 부분';
+      lastSig = '';
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('#learnModes button'), function (b) {
+      b.onclick = function () { setMode(b.getAttribute('data-lm')); };
+    });
+    $('phPrev').onclick = function () { startPhrase(ph - 1); };
+    $('phNext').onclick = function () { startPhrase(ph + 1); };
+
     $('btnTarget').onclick = function () { var t = lesson.target(); if (t !== null) Sound.noteOn(t, 0.8, 0.8); };
-    $('btnPart').onclick = function () { lesson.playDemo(true); };
+    $('btnPart').onclick = function () {
+      if (mode === 'phrase') { var P = phrases[ph]; lesson.playDemo(true, null, P.end - P.start, P.start); }
+      else lesson.playDemo(true);
+    };
     $('btnAll').onclick = function () { lesson.playDemo(false); };
     $('btnStop').onclick = function () { lesson.stopDemo(); };
-    $('btnRestart').onclick = function () { lesson.restart(); msg = ''; saved = false; };
+    $('btnRestart').onclick = restart;
     $('learnBack').onclick = function () { go(course ? 'stage' : 'songs'); };
     lesson.speed = speedOf(song);
     $('learnSpeed').value = lesson.speed;
@@ -450,32 +540,62 @@
     leaveFn = function () { lesson.stopDemo(); };
 
     var lastSig = '';
+    setMode(mode);
     frameFn = function () {
       var focus = lesson.demoIndex !== null ? lesson.demoIndex : lesson.index;
-      var demo = lesson.demoIndex !== null;
+      var demo = lesson.demoIndex !== null, L = settings.letters;
       $('learnButtons').classList.toggle('hidden', demo);
       $('btnStop').classList.toggle('hidden', !demo);
 
       var hintMidi = demo ? lesson.notes[lesson.demoIndex].midi : lesson.target();
-      kb.hints = {}; if (hintMidi !== null) kb.hints[hintMidi] = true;
-      Sound.setExpected(demo ? null : kb.hints);
-      kb.flashes = lesson.flashes; kb.pressed = pressed; kb.letters = settings.letters;
+      kb.hints = {};
+      // 전체 보고 치기는 스스로 찾아 치도록 건반 힌트를 안 보여 줌 (들려줄 때만)
+      if (hintMidi !== null && (mode !== 'sheet' || demo)) kb.hints[hintMidi] = true;
+      Sound.setExpected(demo || hintMidi === null ? null : (function () { var e = {}; e[hintMidi] = true; return e; })());
+      kb.flashes = lesson.flashes; kb.pressed = pressed; kb.letters = L;
       kb.draw();
 
-      var sig = focus + '|' + demo + '|' + msg + '|' + lesson.index + '|' + $('staff').clientWidth;
+      var sig = [mode, focus, demo, msg, lesson.index, ph, reps, $('staff').clientWidth].join('|');
       if (sig === lastSig) return;
       lastSig = sig;
       var n = lesson.notes.length;
-      $('learnBar').style.width = (100 * lesson.index / n) + '%';
-      $('learnCount').textContent = lesson.index + ' / ' + n;
-      var start = Math.max(0, Math.min(focus - 2, n - 10));
-      var win = lesson.notes.slice(start, start + 10).map(function (x) { return x.midi; });
-      drawStaff($('staff'), win, focus - start, settings.letters);
+
+      if (mode === 'phrase') {
+        var P = phrases[ph];
+        $('learnBar').style.width = (100 * (ph + (phDone[ph] ? 1 : 0)) / phrases.length) + '%';
+        $('learnCount').textContent = '소절 ' + (ph + 1) + ' / ' + phrases.length;
+        $('phLabel').textContent = '소절 ' + (ph + 1) + ' / ' + phrases.length + (reps ? ' · 성공 ' + reps + '번' : '');
+        $('phPrev').disabled = ph === 0;
+        $('phNext').disabled = ph === phrases.length - 1;
+        var pn = lesson.notes.slice(P.start, P.end).map(function (x) { return x.midi; });
+        drawStaff($('staff'), pn, Math.max(0, Math.min(focus, P.end - 1) - P.start), L);
+      } else {
+        $('learnBar').style.width = (100 * lesson.index / n) + '%';
+        $('learnCount').textContent = lesson.index + ' / ' + n;
+      }
+      if (mode === 'step') {
+        var start = Math.max(0, Math.min(focus - 2, n - 10));
+        var win = lesson.notes.slice(start, start + 10).map(function (x) { return x.midi; });
+        drawStaff($('staff'), win, focus - start, L);
+      }
+      if (mode === 'sheet') {
+        chips.forEach(function (c, i) { c.className = 'chip' + (i < focus ? ' done' : '') + (i === focus ? ' now' : ''); });
+        var cur = chips[Math.min(focus, chips.length - 1)], box = $('learnSheet');
+        if (cur) {
+          var top = cur.offsetTop - box.offsetTop;
+          if (top < box.scrollTop || top > box.scrollTop + box.clientHeight - 60) box.scrollTop = Math.max(0, top - 50);
+        }
+      }
+
       if (demo) {
-        $('guideMain').innerHTML = '<span style="color:#9b5cf6">👂 잘 들어보세요… ' + Music.fullName(hintMidi, settings.letters) + '</span>';
+        $('guideMain').innerHTML = '<span style="color:#9b5cf6">👂 잘 들어보세요… ' + Music.fullName(hintMidi, L) + '</span>';
         $('guideMsg').textContent = '';
-      } else if (hintMidi !== null) {
-        var nm = Music.fullName(hintMidi, settings.letters);
+      } else if (mode === 'sheet') {
+        $('guideMain').innerHTML = '<span style="font-size:28px">📜 노란 칸부터 보면서 쳐 보세요</span>';
+        $('guideMsg').textContent = msg;
+        $('guideMsg').style.color = msgColor;
+      } else if (hintMidi !== null && !looping) {
+        var nm = Music.fullName(hintMidi, L);
         $('guideMain').innerHTML = '<span style="color:' + Music.color(hintMidi) + '">' + nm + '</span>' +
           Music.particle(nm, '을', '를').slice(nm.length) + ' 눌러요!';
         $('guideMsg').textContent = msg;
@@ -483,6 +603,7 @@
       } else {
         $('guideMain').textContent = '🎉';
         $('guideMsg').textContent = msg;
+        $('guideMsg').style.color = msgColor;
       }
     };
   };

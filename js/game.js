@@ -291,11 +291,11 @@ Lesson.prototype.restart = function () {
 };
 
 // 곡 전체 또는 지금 위치부터 8음 들려주기
-Lesson.prototype.playDemo = function (fromCurrent, onDone) {
+Lesson.prototype.playDemo = function (fromCurrent, onDone, count, from) {
   this.stopDemo();
   var self = this, gen = this.demoGen, spb = 60 / this.song.bpm / this.speed;
-  var start = fromCurrent ? this.index : 0;
-  var end = fromCurrent ? Math.min(this.notes.length, start + 8) : this.notes.length;
+  var start = from !== undefined ? from : fromCurrent ? this.index : 0;
+  var end = fromCurrent ? Math.min(this.notes.length, start + (count || 8)) : this.notes.length;
   if (start >= end) return;
   var base = this.notes[start].beat;
   this.demoIndex = start;
@@ -315,6 +315,24 @@ Lesson.prototype.playDemo = function (fromCurrent, onDone) {
     self.demoIndex = null;
     if (onDone) onDone();
   }, (0.3 + (last.beat + last.beats - base) * spb) * 1000);
+};
+
+// 소절 연습용: 마디를 묶어 한 덩어리(보통 2마디, 4~12음)씩 나눈다 → [{start, end}] (end는 포함 안 함)
+Lesson.prototype.phrases = function () {
+  var bpb = this.song.beatsPerBar || 4, bars = [], out = [], cur = null;
+  this.notes.forEach(function (n, i) {
+    var b = Math.floor(n.beat / bpb + 1e-6);
+    if (!bars.length || bars[bars.length - 1].bar !== b) bars.push({ bar: b, start: i, end: i + 1 });
+    else bars[bars.length - 1].end = i + 1;
+  });
+  bars.forEach(function (b) {
+    var cnt = b.end - b.start;
+    if (cur && ((cur.bars < 2 && cur.end - cur.start + cnt <= 12) || cur.end - cur.start < 4)) { cur.end = b.end; cur.bars++; }
+    else { cur = { start: b.start, end: b.end, bars: 1 }; out.push(cur); }
+  });
+  // 마지막 덩어리가 너무 짧으면 앞에 붙이기
+  if (out.length > 1 && out[out.length - 1].end - out[out.length - 1].start < 3) { out[out.length - 2].end = out.pop().end; }
+  return out;
 };
 
 Lesson.prototype.stopDemo = function () {

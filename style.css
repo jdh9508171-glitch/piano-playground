@@ -351,3 +351,16 @@ h1, h2, h3 { margin: 0; font-weight: 900; }
 .menu-card.gold { background: #f0a500; }
 .quiz-choices button.num { font-size: 40px; min-width: 110px; }
 .gugu-box { display: inline-block; min-width: 1.2em; padding: 0 .15em; border: 4px dashed #f0a500; border-radius: 14px; color: #f0a500; line-height: 1.1; }
+
+/* 배우기 방식 3가지 */
+.learn-modes { display: flex; justify-content: center; margin: 2px 20px 6px; flex-shrink: 0; }
+.learn-modes button { font-size: 17px; font-weight: 800; padding: 9px 16px; margin: 0 5px; border-radius: 999px; background: #fff; color: #555; box-shadow: 0 3px 8px rgba(0,0,0,0.08); }
+.learn-modes button.on { background: #7c5cff; color: #fff; }
+.phrase-bar { display: flex; align-items: center; justify-content: center; margin: 0 20px 6px; flex-shrink: 0; }
+.phrase-bar b { font-size: 20px; margin: 0 14px; min-width: 200px; text-align: center; }
+.learn-sheet { margin: 0 20px; background: #fff; border-radius: 24px; padding: 12px 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; max-height: 210px; flex-shrink: 0; text-align: center; }
+.learn-sheet .bar { display: inline-block; padding: 4px 6px; margin: 3px 0; border-right: 3px solid #e3dccf; vertical-align: top; }
+.learn-sheet .chip { display: inline-block; min-width: 44px; margin: 3px; padding: 4px 6px 6px; border-radius: 14px; font-size: 26px; font-weight: 900; line-height: 1; background: #faf7f1; cursor: pointer; }
+.learn-sheet .chip small { display: block; font-size: 12px; font-weight: 700; color: #999; height: 14px; }
+.learn-sheet .chip.done { opacity: 0.35; }
+.learn-sheet .chip.now { background: #fff1b8; box-shadow: 0 0 0 3px #ffc400; transform: scale(1.12); }

@@ -7,7 +7,7 @@
 <title>피아노 놀이터</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
     <div id="startBox" class="hidden">
       <button class="pill big pink" id="startBtn">🎹 시작하기</button>
       <p class="hint" id="startHint">아이패드를 피아노 위나 옆에 세워 두세요</p>
-    <p class="hint version">버전 29</p>
+    <p class="hint version">버전 30</p>
     </div>
   </div>
 </section>
@@ -80,8 +80,19 @@
     <button class="round dark" id="btnRestart">↺</button>
   </div>
   <div class="progress"><div class="bar" id="learnBar"></div><span id="learnCount"></span></div>
+  <div class="learn-modes" id="learnModes">
+    <button data-lm="step">👣 한 음씩</button>
+    <button data-lm="sheet">📜 전체 보고 치기</button>
+    <button data-lm="phrase">🔁 소절 반복</button>
+  </div>
+  <div class="phrase-bar hidden" id="phraseBar">
+    <button class="pill small gray" id="phPrev">◀ 이전</button>
+    <b id="phLabel"></b>
+    <button class="pill small green" id="phNext">다음 소절 ▶</button>
+  </div>
   <div class="speed-row small"><span>들려주기 빠르기 🐢</span><input type="range" id="learnSpeed" min="0.3" max="1.5" step="0.05"><span>🚀</span><b id="learnSpeedLabel"></b></div>
   <canvas id="staff" class="staff"></canvas>
+  <div class="learn-sheet hidden" id="learnSheet"></div>
   <div class="guide"><div id="guideMain"></div><div id="guideMsg"></div></div>
   <canvas id="learnKeys" class="keys"></canvas>
 </section>
@@ -286,7 +297,7 @@
     </div>
     <div class="card">
       <h3>👧👦 플레이어</h3>
-      <p class="hint">앱 버전 29</p>
+      <p class="hint">앱 버전 30</p>
       <div id="playerEdit"></div>
       <p class="hint">시작 단계: 아이가 학원에서 배우는 단계를 고르면 그 단계까지 바로 열려요.</p>
     </div>
@@ -296,13 +307,13 @@
 <!-- 일시정지 / 결과 -->
 <div id="overlay" class="overlay hidden"><div class="panel" id="overlayPanel"></div></div>
 
-<script src="js/music.js?v=29"></script>
-<script src="js/pitch.js?v=29"></script>
-<script src="js/audio.js?v=29"></script>
-<script src="js/draw.js?v=29"></script>
-<script src="js/game.js?v=29"></script>
-<script src="js/course-data.js?v=29"></script>
-<script src="js/course.js?v=29"></script>
-<script src="js/app.js?v=29"></script>
+<script src="js/music.js?v=30"></script>
+<script src="js/pitch.js?v=30"></script>
+<script src="js/audio.js?v=30"></script>
+<script src="js/draw.js?v=30"></script>
+<script src="js/game.js?v=30"></script>
+<script src="js/course-data.js?v=30"></script>
+<script src="js/course.js?v=30"></script>
+<script src="js/app.js?v=30"></script>
 </body>
 </html>
